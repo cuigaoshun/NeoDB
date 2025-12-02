@@ -1,3 +1,12 @@
+mod commands;
+mod db;
+mod models;
+mod mysql_manager;
+
+use commands::*;
+use mysql_manager::{execute_sql, AppState};
+use tauri::Manager;
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -8,7 +17,33 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .setup(|app| {
+            // 初始化全局状态
+            app.manage(AppState::new());
+
+            // 初始化数据库
+            tauri::async_runtime::block_on(async move {
+                match db::init_db(app.handle()).await {
+                    Ok(db_state) => {
+                        app.manage(db_state);
+                    }
+                    Err(e) => {
+                        eprintln!("Error initializing database: {}", e);
+                        // 这里可以选择 panic 或者只是打印错误，视情况而定
+                    }
+                }
+            });
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            create_connection,
+            get_all_connections,
+            get_connection_by_id,
+            update_connection,
+            delete_connection,
+            execute_sql
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

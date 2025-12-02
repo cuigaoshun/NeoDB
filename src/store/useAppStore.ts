@@ -1,21 +1,24 @@
 import { create } from 'zustand';
-import { ReactNode } from 'react';
 
-export type DbType = 'mysql' | 'redis';
+export type DbType = 'mysql' | 'redis' | 'sqlite' | 'postgres';
 
 export interface Connection {
-  id: string;
+  id: number;
   name: string;
-  type: DbType;
-  host: string;
-  port: number;
+  db_type: DbType;
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  database?: string;
+  created_at?: string;
 }
 
 export interface Tab {
   id: string;
   title: string;
   type: DbType;
-  connectionId: string;
+  connectionId: number;
   active?: boolean;
   // 可以在这里扩展更多 Tab 状态，比如查询内容、滚动位置等
 }
@@ -25,21 +28,22 @@ interface AppState {
   tabs: Tab[];
   activeTabId: string | null;
   
+  setConnections: (connections: Connection[]) => void;
   addTab: (tab: Omit<Tab, 'active'>) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   
-  // Mock action to add connection
   addConnection: (conn: Connection) => void;
+  removeConnection: (id: number) => void;
+  updateConnection: (conn: Connection) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  connections: [
-    { id: '1', name: 'Local MySQL', type: 'mysql', host: 'localhost', port: 3306 },
-    { id: '2', name: 'Prod Redis', type: 'redis', host: '192.168.1.100', port: 6379 },
-  ],
+  connections: [],
   tabs: [],
   activeTabId: null,
+
+  setConnections: (connections) => set({ connections }),
 
   addTab: (newTab) => set((state) => {
     const existingTab = state.tabs.find(t => t.id === newTab.id);
@@ -70,6 +74,14 @@ export const useAppStore = create<AppState>((set) => ({
   setActiveTab: (id) => set({ activeTabId: id }),
 
   addConnection: (conn) => set((state) => ({
-    connections: [...state.connections, conn]
+    connections: [conn, ...state.connections]
   })),
+
+  removeConnection: (id) => set((state) => ({
+    connections: state.connections.filter(c => c.id !== id)
+  })),
+  
+  updateConnection: (conn) => set((state) => ({
+    connections: state.connections.map(c => c.id === conn.id ? conn : c)
+  }))
 }));

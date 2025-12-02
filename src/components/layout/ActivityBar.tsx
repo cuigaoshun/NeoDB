@@ -90,7 +90,7 @@ export function ConnectionSidebar({ collapsed, onToggle }: { collapsed: boolean,
             addTab({
                 id: `conn-${conn.id}`,
                 title: conn.name,
-                type: conn.type,
+                type: conn.db_type,
                 connectionId: conn.id,
             });
         }
@@ -121,10 +121,10 @@ export function ConnectionSidebar({ collapsed, onToggle }: { collapsed: boolean,
                                 : "hover:bg-accent text-muted-foreground hover:text-foreground"
                         )}
                     >
-                        {conn.type === 'mysql' ? (
-                            <Database className={cn("h-4 w-4", conn.type === 'mysql' ? "text-blue-500" : "")} />
+                        {conn.db_type === 'mysql' ? (
+                            <Database className={cn("h-4 w-4", conn.db_type === 'mysql' ? "text-blue-500" : "")} />
                         ) : (
-                            <Server className={cn("h-4 w-4", conn.type === 'redis' ? "text-red-500" : "")} />
+                            <Server className={cn("h-4 w-4", conn.db_type === 'redis' ? "text-red-500" : "")} />
                         )}
                         <span className="truncate">{conn.name}</span>
                     </div>

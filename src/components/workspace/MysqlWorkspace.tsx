@@ -1,42 +1,142 @@
 import { useTranslation } from "react-i18next";
+import { useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { Button } from "@/components/ui/button";
+import { Play, Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-export function MysqlWorkspace({ name }: { name: string }) {
+interface SqlResult {
+  columns: string[];
+  rows: Record<string, any>[];
+  affected_rows: number;
+}
+
+interface MysqlWorkspaceProps {
+    name: string;
+    connectionId: number;
+}
+
+export function MysqlWorkspace({ name, connectionId }: MysqlWorkspaceProps) {
   const { t } = useTranslation();
+  const [sql, setSql] = useState("SELECT * FROM users LIMIT 100;");
+  const [result, setResult] = useState<SqlResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleExecute = async () => {
+      if (!sql.trim()) return;
+      
+      setIsLoading(true);
+      setError(null);
+      setResult(null);
+
+      try {
+          // Invoke Rust command
+          const data = await invoke<SqlResult>("execute_sql", {
+              connectionId,
+              sql
+          });
+          setResult(data);
+      } catch (err: any) {
+          console.error("Execute SQL failed:", err);
+          setError(typeof err === 'string' ? err : JSON.stringify(err));
+      } finally {
+          setIsLoading(false);
+      }
+  };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Toolbar similar to Navicat */}
-      <div className="border-b p-2 flex gap-2 items-center bg-muted/5">
-        <button className="px-3 py-1 text-xs font-medium bg-primary text-primary-foreground rounded-sm">{t('mysql.query')}</button>
-        <button className="px-3 py-1 text-xs font-medium bg-muted hover:bg-accent rounded-sm">{t('mysql.table')}</button>
-        <button className="px-3 py-1 text-xs font-medium bg-muted hover:bg-accent rounded-sm">{t('mysql.view')}</button>
-        <div className="h-4 w-[1px] bg-border mx-2"></div>
-        <button className="px-3 py-1 text-xs font-medium bg-green-600 text-white rounded-sm">{t('mysql.run')}</button>
+    <div className="h-full flex flex-col bg-background">
+      {/* Toolbar */}
+      <div className="border-b p-2 flex gap-2 items-center bg-muted/5 justify-between">
+        <div className="flex gap-2 items-center">
+            <div className="text-sm font-medium px-3 py-1 bg-muted/20 rounded border border-muted">
+                {name}
+            </div>
+            <div className="h-4 w-[1px] bg-border mx-2"></div>
+            <Button 
+                size="sm" 
+                onClick={handleExecute} 
+                disabled={isLoading}
+                className="bg-green-600 hover:bg-green-700 text-white gap-2"
+            >
+                {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                {t('common.run', 'Run')}
+            </Button>
+        </div>
       </div>
       
-      <div className="flex-1 flex">
-         {/* Object List (Left) */}
-        <div className="w-64 border-r p-2 bg-muted/5">
-           <h3 className="text-xs font-bold text-muted-foreground mb-2 px-2">{t('mysql.tables')}</h3>
-           <div className="space-y-1">
-             {['users', 'posts', 'comments', 'orders'].map(table => (
-               <div key={table} className="px-2 py-1 text-sm hover:bg-accent cursor-pointer rounded-sm flex items-center gap-2">
-                 <span className="w-3 h-3 bg-blue-400 rounded-[1px]"></span>
-                 {table}
-               </div>
-             ))}
-           </div>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Query Area */}
+        <div className="h-1/3 p-4 border-b bg-background">
+            <Textarea 
+                value={sql}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSql(e.target.value)}
+                className="font-mono h-full resize-none"
+                placeholder="Enter your SQL query here..."
+            />
         </div>
 
-        {/* Query/Content Area (Right) */}
-        <div className="flex-1 p-4 bg-background">
-           <div className="text-sm text-muted-foreground mb-4">Connection: {name}</div>
-           <div className="border rounded-md p-4 font-mono text-sm bg-muted/10 h-64">
-             SELECT * FROM users LIMIT 10;
-           </div>
-           <div className="mt-4 border rounded-md h-40 flex items-center justify-center text-muted-foreground text-sm">
-             Result Grid Placeholder
-           </div>
+        {/* Result Area */}
+        <div className="flex-1 overflow-auto bg-muted/5 p-4">
+           {error && (
+               <div className="p-4 bg-red-50 text-red-600 border border-red-200 rounded-md text-sm font-mono whitespace-pre-wrap">
+                   Error: {error}
+               </div>
+           )}
+
+           {result && (
+               <div className="h-full flex flex-col">
+                   <div className="mb-2 text-xs text-muted-foreground flex justify-between">
+                       <span>{result.rows.length} rows returned</span>
+                       {result.affected_rows > 0 && <span>Affected Rows: {result.affected_rows}</span>}
+                   </div>
+                   
+                   <div className="border rounded-md bg-background overflow-auto flex-1">
+                       <Table>
+                           <TableHeader className="sticky top-0 bg-muted/50">
+                               <TableRow>
+                                   {result.columns.map((col, i) => (
+                                       <TableHead key={i} className="whitespace-nowrap">{col}</TableHead>
+                                   ))}
+                               </TableRow>
+                           </TableHeader>
+                           <TableBody>
+                               {result.rows.map((row, idx) => (
+                                   <TableRow key={idx} className="hover:bg-muted/50">
+                                       {result.columns.map((col, i) => (
+                                           <TableCell key={i} className="whitespace-nowrap max-w-[300px] truncate">
+                                               {row[col] === null ? <span className="text-muted-foreground italic">NULL</span> : String(row[col])}
+                                           </TableCell>
+                                       ))}
+                                   </TableRow>
+                               ))}
+                               {result.rows.length === 0 && (
+                                   <TableRow>
+                                       <TableCell colSpan={result.columns.length || 1} className="text-center h-24 text-muted-foreground">
+                                           No results
+                                       </TableCell>
+                                   </TableRow>
+                               )}
+                           </TableBody>
+                       </Table>
+                   </div>
+               </div>
+           )}
+
+           {!result && !error && !isLoading && (
+               <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                   Enter a query and click Run to see results
+               </div>
+           )}
         </div>
       </div>
     </div>
