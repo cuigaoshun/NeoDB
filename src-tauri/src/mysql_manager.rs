@@ -2,7 +2,7 @@ use crate::db::DbState;
 use crate::models::Connection;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use sqlx::mysql::{MySqlColumn, MySqlPoolOptions, MySqlRow};
+use sqlx::mysql::{MySqlPoolOptions, MySqlRow};
 use sqlx::{Column, MySqlPool, Row, TypeInfo};
 use std::collections::HashMap;
 use std::sync::Arc;
