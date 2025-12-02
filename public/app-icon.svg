@@ -1,0 +1,24 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" /> <!-- Blue-500 -->
+      <stop offset="100%" stop-color="#7c3aed" /> <!-- Violet-600 -->
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#bg-gradient)"/>
+  
+  <!-- Database Icon -->
+  <g transform="translate(128, 96)">
+    <!-- Top Disc -->
+    <ellipse cx="128" cy="48" rx="112" ry="40" fill="white" fill-opacity="0.95"/>
+    
+    <!-- Stack 1 -->
+    <path d="M16 48v64c0 22.09 50.14 40 112 40s112-17.91 112-40V48" fill="white" fill-opacity="0.75"/>
+    
+    <!-- Stack 2 -->
+    <path d="M16 136v64c0 22.09 50.14 40 112 40s112-17.91 112-40v-64" fill="white" fill-opacity="0.55"/>
+    
+    <!-- Stack 3 -->
+     <path d="M16 224v64c0 22.09 50.14 40 112 40s112-17.91 112-40v-64" fill="white" fill-opacity="0.35"/>
+  </g>
+</svg>

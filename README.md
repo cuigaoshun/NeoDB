@@ -1,5 +1,7 @@
 # NeoDB
 
+<img src="public/app-icon.svg" width="128" align="right" />
+
 NeoDB 是一个现代化的、跨平台的数据库管理工具，旨在提供类似 Navicat 的流畅体验。基于 Tauri 构建，拥有轻量级、高性能的特点。
 
 ## ✨ 功能特性
@@ -12,13 +14,13 @@ NeoDB 是一个现代化的、跨平台的数据库管理工具，旨在提供�
 - **跨平台**
   - 支持 Windows, macOS 和 Linux。
 - **现代化 UI**
-  - 简洁直观的用户界面。
+  - 简洁直观的用户界面，支持暗色模式。
 
 ## 🛠️ 技术栈
 
 - **前端**: [React](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Vite](https://vitejs.dev/)
 - **后端**: [Rust](https://www.rust-lang.org/), [Tauri](https://tauri.app/)
-- **UI 框架**: (待定，建议使用 shadcn/ui 或 Ant Design)
+- **UI 框架**: [shadcn/ui](https://ui.shadcn.com/), [Tailwind CSS](https://tailwindcss.com/)
 
 ## 🚀 开发指南
 
