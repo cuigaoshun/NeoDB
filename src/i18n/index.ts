@@ -19,6 +19,15 @@ const resources = {
         "theme": "Theme",
         "language": "Language"
       },
+      "menu": {
+        "file": "File",
+        "newConnection": "New Connection",
+        "exit": "Exit",
+        "edit": "Edit",
+        "view": "View",
+        "help": "Help",
+        "about": "About"
+      },
       "mysql": {
         "query": "Query",
         "table": "Table",

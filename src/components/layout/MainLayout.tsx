@@ -6,6 +6,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 import { useTranslation } from "react-i18next";
+import { AppMenubar } from "./AppMenubar";
 
 export function MainLayout() {
   const activeTabId = useAppStore((state) => state.activeTabId);
@@ -16,7 +17,10 @@ export function MainLayout() {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-background text-foreground flex flex-col">
-      {/* Top Header Region (Titlebar) if needed, otherwise pure content */}
+      {/* Top Header Region (Menubar) */}
+      <div className="border-b">
+         <AppMenubar />
+      </div>
       
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal">
