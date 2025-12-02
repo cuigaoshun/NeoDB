@@ -5,9 +5,12 @@ import { RedisWorkspace } from "../workspace/RedisWorkspace";
 import { useAppStore } from "@/store/useAppStore";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
+import { useTranslation } from "react-i18next";
+
 export function MainLayout() {
   const activeTabId = useAppStore((state) => state.activeTabId);
   const tabs = useAppStore((state) => state.tabs);
+  const { t } = useTranslation();
   
   const activeTab = tabs.find(t => t.id === activeTabId);
 
@@ -36,8 +39,8 @@ export function MainLayout() {
                 ) : (
                   <div className="h-full flex items-center justify-center text-muted-foreground">
                     <div className="text-center">
-                      <h3 className="text-lg font-medium mb-2">No Active Connection</h3>
-                      <p className="text-sm">Select a connection from the sidebar to start.</p>
+                      <h3 className="text-lg font-medium mb-2">{t('common.noActiveConnection')}</h3>
+                      <p className="text-sm">{t('common.selectConnection')}</p>
                     </div>
                   </div>
                 )}

@@ -1,10 +1,13 @@
 import { cn } from "@/lib/utils";
 import { useAppStore, Connection } from "@/store/useAppStore";
 import { Database, Server } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { SettingsMenu } from "./SettingsMenu";
 
 export function Sidebar() {
   const connections = useAppStore((state) => state.connections);
   const addTab = useAppStore((state) => state.addTab);
+  const { t } = useTranslation();
 
   const handleConnectionClick = (conn: Connection) => {
     // 简单的逻辑：点击连接即打开一个“连接概览”或“工作台” Tab
@@ -18,8 +21,11 @@ export function Sidebar() {
 
   return (
     <div className="h-full flex flex-col bg-muted/10">
-      <div className="p-4 font-semibold text-sm text-muted-foreground uppercase tracking-wider">
-        Connections
+      <div className="p-4 flex items-center justify-between">
+        <span className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
+            {t('sidebar.connections')}
+        </span>
+        <SettingsMenu />
       </div>
       <div className="flex-1 overflow-y-auto px-2">
         {connections.map((conn) => (

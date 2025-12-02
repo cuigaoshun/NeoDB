@@ -1,14 +1,17 @@
 import { Search, Terminal, Database } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
 
 export function RedisWorkspace({ name }: { name: string }) {
+  const { t } = useTranslation();
+
   return (
     <div className="h-full flex flex-col">
       {/* RedisInsight style header */}
       <div className="border-b p-3 flex justify-between items-center bg-muted/5">
         <div className="flex items-center gap-4">
             <h2 className="font-semibold text-sm">{name}</h2>
-            <div className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Connected</div>
+            <div className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">{t('redis.connected')}</div>
         </div>
         <div className="flex gap-2">
             <button className="p-1.5 hover:bg-accent rounded-md" title="CLI"><Terminal className="w-4 h-4" /></button>
@@ -20,9 +23,9 @@ export function RedisWorkspace({ name }: { name: string }) {
         <div className="p-3 border-b flex gap-2">
            <div className="relative flex-1 max-w-md">
              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-             <Input placeholder="Filter keys..." className="pl-8 h-9" />
+             <Input placeholder={t('redis.filterKeys')} className="pl-8 h-9" />
            </div>
-           <button className="px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md">+ Key</button>
+           <button className="px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground rounded-md">+ {t('redis.addKey')}</button>
         </div>
 
         {/* Key Browser */}
@@ -30,10 +33,10 @@ export function RedisWorkspace({ name }: { name: string }) {
            <table className="w-full text-sm text-left">
              <thead className="text-xs text-muted-foreground bg-muted/10 font-medium uppercase border-b">
                 <tr>
-                    <th className="px-4 py-2 w-12">Type</th>
-                    <th className="px-4 py-2">Key</th>
-                    <th className="px-4 py-2 w-24">TTL</th>
-                    <th className="px-4 py-2 w-24">Size</th>
+                    <th className="px-4 py-2 w-12">{t('redis.type')}</th>
+                    <th className="px-4 py-2">{t('redis.key')}</th>
+                    <th className="px-4 py-2 w-24">{t('redis.ttl')}</th>
+                    <th className="px-4 py-2 w-24">{t('redis.size')}</th>
                 </tr>
              </thead>
              <tbody className="divide-y">
