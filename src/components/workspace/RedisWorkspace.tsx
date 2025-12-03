@@ -400,6 +400,33 @@ function ValueViewer({ value, type }: { value: any, type?: string }) {
                  </div>
              )
          }
+         if (type === 'zset') {
+             // ZRANGE ... WITHSCORES returning array [member, score, member, score]
+             const items = [];
+             for(let i=0; i<value.length; i+=2) {
+                 items.push({ member: value[i], score: value[i+1] });
+             }
+             return (
+                 <div className="border rounded-md">
+                     <table className="w-full text-sm text-left">
+                         <thead className="text-xs text-muted-foreground bg-muted/30 font-medium uppercase border-b">
+                             <tr>
+                                 <th className="px-4 py-2">Member</th>
+                                 <th className="px-4 py-2 w-32">Score</th>
+                             </tr>
+                         </thead>
+                         <tbody className="divide-y">
+                             {items.map((item, i) => (
+                                 <tr key={i} className="hover:bg-muted/10">
+                                     <td className="px-4 py-2 font-mono text-muted-foreground align-top break-all">{String(item.member)}</td>
+                                     <td className="px-4 py-2 font-mono align-top">{String(item.score)}</td>
+                                 </tr>
+                             ))}
+                         </tbody>
+                     </table>
+                 </div>
+             )
+         }
          
         return (
             <div className="border rounded-md">
