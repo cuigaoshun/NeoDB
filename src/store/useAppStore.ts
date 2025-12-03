@@ -21,6 +21,8 @@ export interface Tab {
   connectionId: number;
   active?: boolean;
   initialSql?: string;
+  dbName?: string;
+  tableName?: string;
 }
 
 interface AppState {

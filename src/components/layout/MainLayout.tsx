@@ -79,6 +79,8 @@ export function MainLayout() {
                                             name={activeTab.title} 
                                             connectionId={activeTab.connectionId}
                                             initialSql={activeTab.initialSql}
+                                            dbName={activeTab.dbName}
+                                            tableName={activeTab.tableName}
                                         />
                                     ) : activeTab.type === 'redis' ? (
                                         <RedisWorkspace key={activeTab.id} name={activeTab.title} connectionId={activeTab.connectionId} />

@@ -108,7 +108,9 @@ export function ConnectionSidebar({ collapsed, onToggle }: { collapsed: boolean,
                 title: table,
                 type: conn.db_type,
                 connectionId: conn.id,
-                initialSql: `SELECT * FROM \`${db}\`.\`${table}\` LIMIT 100;`
+                initialSql: `SELECT * FROM \`${db}\`.\`${table}\` LIMIT 100;`,
+                dbName: db,
+                tableName: table
             });
         }
     };
