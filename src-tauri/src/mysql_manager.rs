@@ -1,27 +1,11 @@
 use crate::db::DbState;
 use crate::models::Connection;
+use crate::state::AppState;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use sqlx::mysql::{MySqlPoolOptions, MySqlRow};
 use sqlx::{Column, MySqlPool, Row, TypeInfo};
-use std::collections::HashMap;
-use std::sync::Arc;
 use tauri::{State, command};
-use tokio::sync::Mutex;
-
-// 全局状态，用于缓存活跃的数据库连接池
-pub struct AppState {
-    // 使用 Arc<Mutex<...>> 允许在多线程环境中安全共享和修改
-    pub pools: Arc<Mutex<HashMap<i64, MySqlPool>>>,
-}
-
-impl AppState {
-    pub fn new() -> Self {
-        Self {
-            pools: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SqlResult {

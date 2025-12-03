@@ -2,9 +2,13 @@ mod commands;
 mod db;
 mod models;
 mod mysql_manager;
+mod redis_manager;
+mod state;
 
 use commands::*;
-use mysql_manager::{execute_sql, AppState};
+use mysql_manager::execute_sql;
+use redis_manager::execute_redis_command;
+use state::AppState;
 use tauri::Manager;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -42,7 +46,8 @@ pub fn run() {
             get_connection_by_id,
             update_connection,
             delete_connection,
-            execute_sql
+            execute_sql,
+            execute_redis_command
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

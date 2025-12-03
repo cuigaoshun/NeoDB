@@ -70,8 +70,10 @@ export function MainLayout() {
                                 {activeTab ? (
                                     activeTab.type === 'mysql' ? (
                                         <MysqlWorkspace key={activeTab.id} name={activeTab.title} connectionId={activeTab.connectionId} />
+                                    ) : activeTab.type === 'redis' ? (
+                                        <RedisWorkspace key={activeTab.id} name={activeTab.title} connectionId={activeTab.connectionId} />
                                     ) : (
-                                        <RedisWorkspace key={activeTab.id} name={activeTab.title} />
+                                         <div>Unsupported Type: {activeTab.type}</div>
                                     )
                                 ) : (
                                     <div className="h-full flex items-center justify-center text-muted-foreground bg-muted/5">
