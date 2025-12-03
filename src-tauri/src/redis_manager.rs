@@ -1,7 +1,7 @@
 use crate::db::DbState;
 use crate::models::Connection;
 use crate::state::AppState;
-// use redis::Commands; // Removed or commented out
+use redis::{FromRedisValue};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use tauri::{State, command};
@@ -15,6 +15,14 @@ pub struct RedisResult {
 pub struct ScanResult {
     pub cursor: String,
     pub keys: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct KeyDetail {
+    pub key: String,
+    pub r#type: String,
+    pub ttl: i64,
+    pub length: Option<i64>, 
 }
 
 async fn get_or_create_redis_client(
@@ -141,22 +149,88 @@ pub async fn get_redis_keys(
     })
 }
 
+
+#[command]
+pub async fn get_keys_details(
+    app_state: State<'_, AppState>,
+    db_state: State<'_, DbState>,
+    connection_id: i64,
+    keys: Vec<String>,
+) -> Result<Vec<KeyDetail>, String> {
+    if keys.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let client = get_or_create_redis_client(&app_state, &db_state, connection_id).await?;
+    let mut con = client.get_multiplexed_async_connection().await
+        .map_err(|e| format!("Failed to get Redis connection: {}", e))?;
+
+    let mut pipe = redis::pipe();
+    
+    for key in &keys {
+        pipe.cmd("TYPE").arg(key);
+        pipe.cmd("TTL").arg(key);
+        // MEMORY USAGE might not be available on all redis versions or constrained, 
+        // but we can try. If it fails, the whole pipeline fails?
+        // Alternatively, for list we can use LLEN, for set SCARD, etc.
+        // But getting generic size is hard without MEMORY USAGE.
+        // The reference image shows "Size" (bytes) and "Length" (items).
+        // Let's try to get Length (LLEN, SCARD, HLEN, STRLEN, ZCARD).
+        // Since we don't know the type yet, we can't easily pick the right command in the same pipeline 
+        // unless we use Lua script or multiple round trips.
+        // But wait, we can just fetch TYPE and TTL first.
+        // Or we can assume MEMORY USAGE works (Redis 4.0+).
+        // Let's just stick to TYPE and TTL for the list view for now to be safe and fast.
+        // The user request image shows "304 B" etc. So they probably want size.
+        // Let's try MEMORY USAGE default.
+        pipe.cmd("MEMORY").arg("USAGE").arg(key);
+    }
+
+    // The result will be a flat vector of values: [Type1, TTL1, Mem1, Type2, TTL2, Mem2, ...]
+    // Note: MEMORY USAGE returns nil if key doesn't exist, or int.
+    let results: Vec<redis::Value> = pipe.query_async(&mut con).await
+        .map_err(|e| format!("Pipeline failed: {}", e))?;
+
+    let mut details = Vec::new();
+    for (i, key) in keys.iter().enumerate() {
+        let type_val = &results[i * 3];
+        let ttl_val = &results[i * 3 + 1];
+        let mem_val = &results[i * 3 + 2];
+
+        let type_str: String = String::from_redis_value(type_val).unwrap_or_else(|_| "unknown".to_string());
+        let ttl: i64 = i64::from_redis_value(ttl_val).unwrap_or(-1);
+        let memory: Option<i64> = Option::<i64>::from_redis_value(mem_val).ok().flatten();
+
+        details.push(KeyDetail {
+            key: key.clone(),
+            r#type: type_str,
+            ttl,
+            length: memory,
+        });
+    }
+
+    Ok(details)
+}
+
 fn redis_value_to_json(v: redis::Value) -> JsonValue {
     match v {
         redis::Value::Nil => JsonValue::Null,
         redis::Value::Int(i) => JsonValue::Number(i.into()),
-        
-        // Trying alternative variant names
-        // redis::Value::Data(d) => JsonValue::String(String::from_utf8_lossy(&d).to_string()),
-        // redis::Value::Status(s) => JsonValue::String(s),
-        // redis::Value::Bulk(items) => ...
-
-        // Hypothesizing new names:
-        // redis::Value::Bytes(d) => JsonValue::String(String::from_utf8_lossy(&d).to_string()),
-        // redis::Value::SimpleString(s) => JsonValue::String(s),
-        // redis::Value::BulkString(d) => ... ? No, BulkString is usually bytes.
-        
-        // Fallback:
-        _ => JsonValue::String(format!("{:?}", v)),
+        _ => {
+            // Try as a list of values (Bulk/Array) first
+            // We ask for Vec<redis::Value> to capture nested structures like lists/sets
+            if let Ok(items) = Vec::<redis::Value>::from_redis_value(&v) {
+                 let json_items: Vec<JsonValue> = items.into_iter().map(redis_value_to_json).collect();
+                 return JsonValue::Array(json_items);
+            }
+            
+            // Try to convert to string generically (handles Data, Status, Okay, etc.)
+            if let Ok(s) = String::from_redis_value(&v) {
+                JsonValue::String(s)
+            } else {
+                // Fallback
+                JsonValue::String(format!("{:?}", v))
+            }
+        }
     }
 }
