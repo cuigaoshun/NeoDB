@@ -18,7 +18,7 @@ export function MainLayout() {
   const [activeView, setActiveView] = useState<'home' | 'connections'>('home');
   
   // Sidebar collapse state
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Auto-switch to 'connections' view when a tab is activated
   useEffect(() => {
@@ -28,9 +28,14 @@ export function MainLayout() {
   }, [activeTabId]);
 
   const handleViewChange = (view: 'home' | 'connections') => {
-      setActiveView(view);
-      // Optional: if switching to home, maybe clear active tab or just hide it?
-      // For now, we keep active tab state but just show home screen.
+      if (view === activeView && view === 'connections') {
+          setSidebarCollapsed(!sidebarCollapsed);
+      } else {
+          setActiveView(view);
+          if (view === 'connections') {
+              setSidebarCollapsed(false);
+          }
+      }
   };
 
   return (

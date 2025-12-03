@@ -1,7 +1,7 @@
 import { Search, Terminal, RefreshCw, Plus, Copy, X, Trash2, Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useTranslation } from "react-i18next";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -119,14 +119,24 @@ export function RedisWorkspace({ name, connectionId }: { name: string; connectio
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-      const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-      if (scrollHeight - scrollTop <= clientHeight + 50) {
-          if (!loading && hasMore) {
-              fetchKeys(false);
-          }
+  const observerTarget = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+      const observer = new IntersectionObserver(
+          (entries) => {
+              if (entries[0].isIntersecting && hasMore && !loading) {
+                  fetchKeys(false);
+              }
+          },
+          { threshold: 0.1 }
+      );
+
+      if (observerTarget.current) {
+          observer.observe(observerTarget.current);
       }
-  };
+
+      return () => observer.disconnect();
+  }, [hasMore, loading, fetchKeys]);
 
   const handleKeyClick = async (keyItem: KeyItem) => {
       setSelectedKey(keyItem.key);
@@ -176,6 +186,24 @@ export function RedisWorkspace({ name, connectionId }: { name: string; connectio
       return `${(bytes / 1024).toFixed(2)} KB`;
   };
 
+  const formatTTL = (seconds?: number) => {
+      if (seconds === undefined || seconds === null) return "-";
+      if (seconds === -1) return "No limit";
+      if (seconds < 0) return "Expired"; 
+      
+      const d = Math.floor(seconds / (3600 * 24));
+      if (d > 0) return `${d}d`;
+
+      const h = Math.floor((seconds % (3600 * 24)) / 3600);
+      if (h > 0) return `${h}h`;
+
+      const m = Math.floor((seconds % 3600) / 60);
+      if (m > 0) return `${m}m`;
+
+      const s = seconds % 60;
+      return `${s}s`;
+  };
+
   const selectedKeyItem = keys.find(k => k.key === selectedKey);
 
   return (
@@ -223,7 +251,7 @@ export function RedisWorkspace({ name, connectionId }: { name: string; connectio
                  </div>
 
                  {/* Key List */}
-                 <ScrollArea className="flex-1" onScrollCapture={handleScroll}>
+                 <ScrollArea className="flex-1">
                      <div className="flex flex-col divide-y">
                          {keys.map(key => (
                              <div 
@@ -238,14 +266,18 @@ export function RedisWorkspace({ name, connectionId }: { name: string; connectio
                                      <div className="text-sm font-medium truncate font-mono" title={key.key}>{key.key}</div>
                                  </div>
                                  <div className="flex flex-col items-end text-[10px] text-muted-foreground min-w-[60px]">
-                                     <span>{key.ttl === -1 ? "No limit" : `${key.ttl}s`}</span>
-                                     <span>{formatSize(key.length)}</span>
-                                 </div>
+                                    <span>{formatTTL(key.ttl)}</span>
+                                    <span>{formatSize(key.length)}</span>
+                                </div>
                              </div>
                          ))}
                          {keys.length === 0 && !loading && (
                              <div className="p-8 text-center text-muted-foreground text-sm">No keys found</div>
                          )}
+                         
+                         {/* Sentinel for infinite scroll */}
+                         <div ref={observerTarget} className="h-px w-full" />
+
                          {loading && (
                              <div className="p-4 text-center text-muted-foreground text-xs">Loading...</div>
                          )}
@@ -290,7 +322,7 @@ export function RedisWorkspace({ name, connectionId }: { name: string; connectio
                             </div>
                             <div className="flex gap-1">
                                 <span className="font-medium">TTL:</span>
-                                <span>{selectedKeyItem?.ttl === -1 ? "No limit" : `${selectedKeyItem?.ttl}s`}</span>
+                                <span>{formatTTL(selectedKeyItem?.ttl)}</span>
                             </div>
                             <div className="flex gap-1">
                                 <span className="font-medium">Type:</span>

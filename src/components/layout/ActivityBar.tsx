@@ -101,7 +101,7 @@ export function ConnectionSidebar({ collapsed, onToggle }: { collapsed: boolean,
     }
 
     return (
-        <div className="w-64 bg-muted/10 border-r flex flex-col text-foreground">
+        <div className="w-full h-full bg-muted/10 border-r flex flex-col text-foreground">
              <div className="p-4 flex items-center justify-between border-b">
                 <span className="font-semibold text-sm uppercase tracking-wider">{t('sidebar.explorer')}</span>
                 <button onClick={onToggle} className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground">
