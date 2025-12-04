@@ -268,7 +268,10 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
 
             {/* Databases List */}
             {isExpanded && (
-                <div className="ml-4 border-l border-border/40 pl-1 max-h-[320px] overflow-y-auto">
+                <div className={cn(
+                    "ml-4 border-l border-border/40 pl-1 overflow-y-auto",
+                    connection.db_type === 'mysql' ? "max-h-[600px]" : "max-h-[320px]"
+                )}>
                     {error && (
                         <div className="px-2 py-1.5 text-xs text-destructive bg-destructive/10 rounded mx-1 mb-1 break-words">
                             {error}
