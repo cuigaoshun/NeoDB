@@ -446,8 +446,8 @@ function ValueViewer({ value, type }: { value: any; type?: string }) {
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground bg-muted/30 font-medium uppercase border-b">
               <tr>
-                <th className="px-4 py-2 w-1/3">Field</th>
-                <th className="px-4 py-2">Value</th>
+                <th className="px-4 py-2 w-1/2">Field</th>
+                <th className="px-4 py-2 w-1/2">Value</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -479,8 +479,8 @@ function ValueViewer({ value, type }: { value: any; type?: string }) {
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-muted-foreground bg-muted/30 font-medium uppercase border-b">
               <tr>
-                <th className="px-4 py-2">Member</th>
-                <th className="px-4 py-2 w-32">Score</th>
+                <th className="px-4 py-2 w-1/2">Member</th>
+                <th className="px-4 py-2 w-1/2">Score</th>
               </tr>
             </thead>
             <tbody className="divide-y">
