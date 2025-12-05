@@ -75,9 +75,8 @@ export function RedisWorkspace({ name, connectionId, db = 0 }: { name: string; c
     
     // Determine search strategy
     const useExactSearch = filter && !filter.endsWith('*') && filter.trim() !== "";
-    const usePrefixSearch = filter && filter.endsWith('*') && filter.trim() !== "*";
-    
-    const startTime = Date.now();
+      filter && filter.endsWith('*') && filter.trim() !== "*";
+      const startTime = Date.now();
     let command = '';
 
     try {
@@ -321,19 +320,35 @@ export function RedisWorkspace({ name, connectionId, db = 0 }: { name: string; c
     }
   };
 
-  useEffect(() => {
-    fetchKeys(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectionId, db]);
+  // Precision control for fetchKeys using refs to handle Strict Mode and dependencies
+  const propsRef = useRef({ connectionId, db, filter, initialized: false });
 
-  // Debounce filter
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const prev = propsRef.current;
+    const curr = { connectionId, db, filter, initialized: true };
+    propsRef.current = curr;
+
+    // Case 1: Initial mount - Immediate fetch
+    if (!prev.initialized) {
       fetchKeys(true);
-    }, 500);
-    return () => clearTimeout(timer);
+      return;
+    }
+
+    // Case 2: Connection or DB changed - Immediate fetch
+    if (prev.connectionId !== curr.connectionId || prev.db !== curr.db) {
+      fetchKeys(true);
+      return;
+    }
+
+    // Case 3: Filter changed - Debounced fetch
+    if (prev.filter !== curr.filter) {
+      const timer = setTimeout(() => {
+        fetchKeys(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, [connectionId, db, filter]);
 
   // Debounce value filter for complex types
   useEffect(() => {
