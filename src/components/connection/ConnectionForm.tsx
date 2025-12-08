@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Connection, DbType } from "@/store/useAppStore";
 import { useTranslation } from "react-i18next";
 
@@ -84,17 +91,21 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, submitLabel }:
             <div className="grid grid-cols-4 items-center gap-4">
                 <label className="text-right text-sm font-medium">{t('common.type')}</label>
                 <div className="col-span-3">
-                    <select
+                    <Select
                         value={formData.db_type}
-                        onChange={(e) => handleChange('db_type', e.target.value as DbType)}
-                        className="w-full p-2 border border-input rounded-md bg-background text-sm"
+                        onValueChange={(value) => handleChange('db_type', value as DbType)}
                     >
-                        <option value="mysql">MySQL</option>
-                        <option value="redis">Redis</option>
-                        <option value="memcached">Memcached</option>
-                        <option value="postgres">PostgreSQL</option>
-                        <option value="sqlite">SQLite</option>
-                    </select>
+                        <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="mysql">MySQL</SelectItem>
+                            <SelectItem value="redis">Redis</SelectItem>
+                            <SelectItem value="memcached">Memcached</SelectItem>
+                            <SelectItem value="postgres">PostgreSQL</SelectItem>
+                            <SelectItem value="sqlite">SQLite</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
             </div>
 
