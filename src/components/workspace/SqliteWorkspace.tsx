@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Play, RefreshCw } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
@@ -23,6 +24,7 @@ interface SqliteWorkspaceProps {
 }
 
 export function SqliteWorkspace({ tabId, name: _name, connectionId, initialSql, savedSql, savedResult }: SqliteWorkspaceProps) {
+  const { t } = useTranslation();
   const [sql, setSql] = useState(savedSql || initialSql || "SELECT * FROM sqlite_master LIMIT 10;");
   const [result, setResult] = useState<SqlResult | null>(savedResult || null);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +90,7 @@ export function SqliteWorkspace({ tabId, name: _name, connectionId, initialSql, 
       {/* Toolbar */}
       <div className="flex items-center gap-2 p-2 border-b bg-muted/10">
         <Button size="sm" onClick={() => runQuery()} disabled={loading} className="gap-1">
-          <Play className="w-4 h-4" /> Run
+          <Play className="w-4 h-4" /> {t('common.run', 'Run')}
         </Button>
       </div>
 
@@ -98,7 +100,7 @@ export function SqliteWorkspace({ tabId, name: _name, connectionId, initialSql, 
           value={sql}
           onChange={(e) => setSql(e.target.value)}
           className="font-mono h-full resize-none"
-          placeholder="Enter SQL query..."
+          placeholder={t('common.sqlPlaceholder', 'Enter SQL query...')}
         />
       </div>
 
@@ -106,13 +108,13 @@ export function SqliteWorkspace({ tabId, name: _name, connectionId, initialSql, 
       <div className="flex-1 overflow-hidden flex flex-col bg-background">
         {loading && (
           <div className="p-4 text-sm text-muted-foreground flex items-center gap-2">
-            <RefreshCw className="w-4 h-4 animate-spin" /> Running query...
+            <RefreshCw className="w-4 h-4 animate-spin" /> {t('common.running', 'Running query...')}
           </div>
         )}
 
         {error && (
           <div className="p-4 text-sm text-red-500 bg-red-50/10 border-b border-red-100/20">
-            Error: {error}
+            {t('common.error', 'Error')}: {error}
           </div>
         )}
 
@@ -121,8 +123,8 @@ export function SqliteWorkspace({ tabId, name: _name, connectionId, initialSql, 
             {/* Result Meta */}
             <div className="p-2 text-xs text-muted-foreground border-b bg-muted/5">
               {result.affected_rows > 0
-                ? `Affected rows: ${result.affected_rows}`
-                : `Rows: ${result.rows.length}`
+                ? `${t('common.affectedRows', 'Affected rows')}: ${result.affected_rows}`
+                : `${t('common.rows', 'Rows')}: ${result.rows.length}`
               }
             </div>
 
@@ -157,7 +159,7 @@ export function SqliteWorkspace({ tabId, name: _name, connectionId, initialSql, 
             ) : (
               !error && !loading && result.affected_rows === 0 && (
                 <div className="p-8 text-center text-muted-foreground">
-                  No results
+                  {t('common.noResults', 'No results')}
                 </div>
               )
             )}

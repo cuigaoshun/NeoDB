@@ -1,16 +1,16 @@
 import { useAppStore, Connection } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
-import { 
-  Database,
-  ChevronLeft,
-  Home,
-  Terminal
+import {
+    Database,
+    ChevronLeft,
+    Home,
+    Terminal
 } from "lucide-react";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useTranslation } from "react-i18next";
 import { SettingsMenu } from "./SettingsMenu";
@@ -28,11 +28,11 @@ export function ActivityBar({ activeView, onViewChange, consoleVisible, onToggle
 
     return (
         <div className="w-12 bg-slate-900 flex flex-col items-center py-4 border-r border-slate-800 text-slate-300 z-20">
-             <div className="flex flex-col gap-4 w-full items-center">
+            <div className="flex flex-col gap-4 w-full items-center">
                 <TooltipProvider delayDuration={0}>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button 
+                            <button
                                 onClick={() => onViewChange('home')}
                                 className={cn(
                                     "p-2 rounded-md transition-colors hover:bg-slate-800 hover:text-white",
@@ -51,7 +51,7 @@ export function ActivityBar({ activeView, onViewChange, consoleVisible, onToggle
                 <TooltipProvider delayDuration={0}>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button 
+                            <button
                                 onClick={() => onViewChange('connections')}
                                 className={cn(
                                     "p-2 rounded-md transition-colors hover:bg-slate-800 hover:text-white",
@@ -66,13 +66,13 @@ export function ActivityBar({ activeView, onViewChange, consoleVisible, onToggle
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
-             </div>
+            </div>
 
-             <div className="mt-auto flex flex-col gap-4 w-full items-center">
-                 <TooltipProvider delayDuration={0}>
+            <div className="mt-auto flex flex-col gap-4 w-full items-center">
+                <TooltipProvider delayDuration={0}>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <button 
+                            <button
                                 onClick={onToggleConsole}
                                 className={cn(
                                     "p-2 rounded-md transition-colors hover:bg-slate-800 hover:text-white",
@@ -83,13 +83,13 @@ export function ActivityBar({ activeView, onViewChange, consoleVisible, onToggle
                             </button>
                         </TooltipTrigger>
                         <TooltipContent side="right" className="bg-slate-900 border-slate-700 text-white">
-                            <p>Toggle CLI Console</p>
+                            <p>{t('common.toggleConsole')}</p>
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
 
-                 <SettingsMenu />
-             </div>
+                <SettingsMenu />
+            </div>
         </div>
     );
 }
@@ -109,7 +109,7 @@ export function ConnectionSidebar({ collapsed, onToggle }: { collapsed: boolean,
     const replaceTab = useAppStore((state) => state.replaceTab);
     const tabs = useAppStore((state) => state.tabs);
     const { t } = useTranslation();
-    
+
     const [searchTerm, setSearchTerm] = useState("");
 
     // If a connection is already open in a tab, switch to it. Otherwise open new tab.
@@ -138,12 +138,12 @@ export function ConnectionSidebar({ collapsed, onToggle }: { collapsed: boolean,
 
             // Check reuse for Redis
             const activeTab = tabs.find(t => t.id === activeTabId);
-            const isReusable = activeTab && activeTab.type === 'redis'; 
+            const isReusable = activeTab && activeTab.type === 'redis';
             // For Redis, we don't have SQL to check modification. 
             // Maybe simple reuse is fine if we are just browsing?
             // Or should we always open new tab?
             // Let's reuse if it's a redis tab.
-            
+
             const newTab = {
                 id: tabId,
                 title: `${conn.name} (DB ${db})`,
@@ -162,7 +162,7 @@ export function ConnectionSidebar({ collapsed, onToggle }: { collapsed: boolean,
 
         const tabId = `table-${conn.id}-${db}-${table}`;
         const existingTab = tabs.find(t => t.id === tabId);
-        
+
         if (existingTab) {
             setActiveTab(existingTab.id);
             return;
@@ -170,17 +170,17 @@ export function ConnectionSidebar({ collapsed, onToggle }: { collapsed: boolean,
 
         // Check if we can reuse the current active tab
         const activeTab = tabs.find(t => t.id === activeTabId);
-        const isReusable = activeTab && 
-                           (activeTab.type === 'mysql' || activeTab.type === 'sqlite') && 
-                           (!activeTab.currentSql || activeTab.currentSql === activeTab.initialSql);
+        const isReusable = activeTab &&
+            (activeTab.type === 'mysql' || activeTab.type === 'sqlite') &&
+            (!activeTab.currentSql || activeTab.currentSql === activeTab.initialSql);
 
         const newTab = {
             id: tabId,
             title: table,
             type: conn.db_type,
             connectionId: conn.id,
-            initialSql: conn.db_type === 'sqlite' 
-                ? `SELECT * FROM "${table}" LIMIT 100;` 
+            initialSql: conn.db_type === 'sqlite'
+                ? `SELECT * FROM "${table}" LIMIT 100;`
                 : `SELECT * FROM \`${db}\`.\`${table}\` LIMIT 100;`,
             dbName: db,
             tableName: table
@@ -194,12 +194,12 @@ export function ConnectionSidebar({ collapsed, onToggle }: { collapsed: boolean,
     };
 
     if (collapsed) {
-        return null; 
+        return null;
     }
 
     return (
         <div className="w-full h-full bg-muted/10 border-r flex flex-col text-foreground">
-             <div className="p-4 flex flex-col gap-3 border-b">
+            <div className="p-4 flex flex-col gap-3 border-b">
                 <div className="flex items-center justify-between">
                     <span className="font-semibold text-sm uppercase tracking-wider">{t('sidebar.explorer')}</span>
                     <button onClick={onToggle} className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground">
@@ -208,15 +208,15 @@ export function ConnectionSidebar({ collapsed, onToggle }: { collapsed: boolean,
                 </div>
                 <div className="relative">
                     <Search className="absolute left-2 top-2.5 h-3 w-3 text-muted-foreground" />
-                    <Input 
-                        placeholder={t('common.searchExplorer')} 
+                    <Input
+                        placeholder={t('common.searchExplorer')}
                         className="h-8 pl-7 text-xs bg-background"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-             </div>
-             <div className="flex-1 overflow-y-auto p-2">
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
                 {connections.filter(c => !searchTerm || c.name.toLowerCase().includes(searchTerm.toLowerCase()) || searchTerm).map((conn) => (
                     <ConnectionTreeItem
                         key={conn.id}
@@ -227,7 +227,7 @@ export function ConnectionSidebar({ collapsed, onToggle }: { collapsed: boolean,
                         filterTerm={searchTerm}
                     />
                 ))}
-             </div>
+            </div>
         </div>
     );
 }

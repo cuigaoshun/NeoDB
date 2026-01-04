@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useTranslation } from "react-i18next";
 import { Terminal, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CommandConsole } from './CommandConsole';
 
 export function CommandConsoleToggle() {
+  const { t } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
 
   const toggleConsole = () => {
@@ -21,7 +23,7 @@ export function CommandConsoleToggle() {
           variant={isVisible ? "default" : "secondary"}
         >
           <Terminal className="w-4 h-4 mr-2" />
-          命令控制台
+          {t('common.terminal', '命令控制台')}
           {isVisible ? <ChevronDown className="w-4 h-4 ml-2" /> : <ChevronUp className="w-4 h-4 ml-2" />}
         </Button>
       </div>

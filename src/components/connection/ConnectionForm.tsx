@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import { Connection, DbType } from "@/store/useAppStore";
 import { useTranslation } from "react-i18next";
@@ -39,7 +39,7 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, submitLabel }:
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!formData.name.trim()) {
             setError(t('common.name_required'));
             return;
@@ -68,11 +68,11 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, submitLabel }:
         // Set default port when type changes if not manually modified? 
         // For simplicity, we just set it if it matches default of other type
         if (formData.db_type === 'mysql' && formData.port === 6379) {
-             handleChange('port', 3306);
+            handleChange('port', 3306);
         } else if (formData.db_type === 'redis' && formData.port === 3306) {
-             handleChange('port', 6379);
+            handleChange('port', 6379);
         } else if (formData.db_type === 'memcached' && formData.port === 3306) {
-             handleChange('port', 11211);
+            handleChange('port', 11211);
         }
     }, [formData.db_type]);
 
@@ -84,10 +84,10 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, submitLabel }:
                     value={formData.name}
                     onChange={(e) => handleChange('name', e.target.value)}
                     className="col-span-3"
-                    placeholder="My Connection"
+                    placeholder={t('common.name')}
                 />
             </div>
-            
+
             <div className="grid grid-cols-4 items-center gap-4">
                 <label className="text-right text-sm font-medium">{t('common.type')}</label>
                 <div className="col-span-3">
@@ -96,7 +96,7 @@ export function ConnectionForm({ initialData, onSubmit, onCancel, submitLabel }:
                         onValueChange={(value) => handleChange('db_type', value as DbType)}
                     >
                         <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select type" />
+                            <SelectValue placeholder={t('common.selectType')} />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="mysql">MySQL</SelectItem>

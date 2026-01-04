@@ -193,7 +193,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     // 生成 WHERE 子句（基于主键）
     const generateWhereClause = (row: Record<string, any>): string => {
         if (primaryKeys.length === 0) {
-            throw new Error("无法更新/删除：表没有主键");
+            throw new Error(t('common.noPrimaryKey', '无法更新/删除：表没有主键'));
         }
 
         const conditions = primaryKeys.map(key => {
@@ -295,7 +295,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     const handleRowDelete = async () => {
         if (!result || !dbName || !tableName || selectedRowIndices.length === 0) return;
 
-        if (!confirm(`确定要删除选中的 ${selectedRowIndices.length} 行吗？`)) return;
+        if (!confirm(t('common.confirmDeleteRows', '确定要删除选中的 {{count}} 行吗？', { count: selectedRowIndices.length }))) return;
 
         try {
             // 批量删除
@@ -389,7 +389,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
         });
 
         if (fields.length === 0) {
-            alert('请至少填写一个字段');
+            alert(t('common.atLeastOneField', '请至少填写一个字段'));
             return;
         }
 
@@ -447,7 +447,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     const handlePageSizeChange = () => {
         const newSize = parseInt(pageSizeInput);
         if (isNaN(newSize) || newSize <= 0) {
-            alert('请输入有效的数字');
+            alert(t('common.invalidNumber', '请输入有效的数字'));
             return;
         }
         setPageSize(newSize);
@@ -636,21 +636,21 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                 variant="outline"
                                 onClick={handleAddNewRow}
                                 className="gap-2"
-                                title="添加新行"
+                                title={t('common.add', '新增')}
                             >
                                 <Plus className="h-3 w-3" />
-                                新增
+                                {t('common.add', '新增')}
                             </Button>
                             <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={handleCopyRow}
                                 disabled={selectedRowIndices.length === 0}
+                                title={t('common.duplicate', '复制') + ` ${selectedRowIndices.length} ` + t('common.items', '条')}
                                 className="gap-2"
-                                title={`复制选中的 ${selectedRowIndices.length} 行`}
                             >
                                 <Copy className="h-3 w-3" />
-                                复制 {selectedRowIndices.length > 0 && `(${selectedRowIndices.length})`}
+                                {t('common.duplicate', '复制')} {selectedRowIndices.length > 0 && `(${selectedRowIndices.length})`}
                             </Button>
                             <Button
                                 size="sm"
@@ -658,10 +658,10 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                 onClick={handleRowDelete}
                                 disabled={primaryKeys.length === 0 || selectedRowIndices.length === 0}
                                 className="gap-2 text-red-600 hover:text-red-700"
-                                title={primaryKeys.length === 0 ? "无主键，无法删除" : `删除选中的 ${selectedRowIndices.length} 行`}
+                                title={primaryKeys.length === 0 ? t('common.noPrimaryKey') : t('common.delete', '删除') + ` ${selectedRowIndices.length} ` + t('common.items', '条')}
                             >
                                 <Trash2 className="h-3 w-3" />
-                                删除 {selectedRowIndices.length > 0 && `(${selectedRowIndices.length})`}
+                                {t('common.delete', '删除')} {selectedRowIndices.length > 0 && `(${selectedRowIndices.length})`}
                             </Button>
                         </>
                     )}
@@ -696,7 +696,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                     value={sql}
                                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSql(e.target.value)}
                                     className="font-mono h-full resize-none"
-                                    placeholder="Enter your SQL query here..."
+                                    placeholder={t('common.sqlPlaceholder', '在此输入 SQL 查询...')}
                                 />
                             </div>
 
@@ -711,8 +711,8 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                 {result && (
                                     <div className="h-full flex flex-col">
                                         <div className="mb-2 text-xs text-muted-foreground flex justify-between">
-                                            <span>{result.rows.length} rows returned</span>
-                                            {result.affected_rows > 0 && <span>Affected Rows: {result.affected_rows}</span>}
+                                            <span>{result.rows.length} {t('common.rowsReturned', 'rows returned')}</span>
+                                            {result.affected_rows > 0 && <span>{t('common.affectedRows', 'Affected Rows')}: {result.affected_rows}</span>}
                                         </div>
 
                                         <div className="border rounded-md bg-background overflow-auto flex-1">
@@ -779,7 +779,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                             variant="ghost"
                                                                             className="h-7 px-2 text-green-600 hover:text-green-700"
                                                                             onClick={() => handleNewRowSubmit(rowIdx)}
-                                                                            title="提交"
+                                                                            title={t('common.save', '提交')}
                                                                         >
                                                                             <Check className="h-3 w-3" />
                                                                         </Button>
@@ -788,7 +788,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                             variant="ghost"
                                                                             className="h-7 px-2 text-red-600 hover:text-red-700"
                                                                             onClick={() => handleNewRowDelete(rowIdx)}
-                                                                            title="取消"
+                                                                            title={t('common.cancel', '取消')}
                                                                         >
                                                                             <X className="h-3 w-3" />
                                                                         </Button>
@@ -904,7 +904,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                     {result.rows.length === 0 && newRows.length === 0 && (
                                                         <TableRow>
                                                             <TableCell colSpan={result.columns.length || 1} className="text-center h-24 text-muted-foreground">
-                                                                No results
+                                                                {t('common.noResults', 'No results')}
                                                             </TableCell>
                                                         </TableRow>
                                                     )}
@@ -924,9 +924,9 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                         className="h-7"
                                                     >
                                                         <ChevronLeft className="h-3 w-3" />
-                                                        上一页
+                                                        {t('common.prevPage', '上一页')}
                                                     </Button>
-                                                    <span>第 {currentPage + 1} 页</span>
+                                                    <span>{t('common.page', '第')} {currentPage + 1} {t('common.page', '页')}</span>
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
@@ -934,7 +934,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                         disabled={result.rows.length < pageSize}
                                                         className="h-7"
                                                     >
-                                                        下一页
+                                                        {t('common.nextPage', '下一页')}
                                                         <ChevronRight className="h-3 w-3" />
                                                     </Button>
 
@@ -967,10 +967,10 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    显示 {currentPage * pageSize + 1} - {currentPage * pageSize + result.rows.length} 条
+                                                    {t('common.show', '显示')} {currentPage * pageSize + 1} - {currentPage * pageSize + result.rows.length} {t('common.items', '条')}
                                                     {primaryKeys.length === 0 && tableName && (
                                                         <span className="ml-4 text-yellow-600 dark:text-yellow-400">
-                                                            ⚠️ 表无主键，无法编辑/删除
+                                                            ⚠️ {t('common.noPrimaryKey')}
                                                         </span>
                                                     )}
                                                 </div>
@@ -981,7 +981,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
 
                                 {!result && !error && !isLoading && (
                                     <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                                        Enter a query and click Run to see results
+                                        {t('common.noResults')}
                                     </div>
                                 )}
                             </div>
@@ -1019,6 +1019,6 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                     )}
                 </ResizablePanelGroup>
             </div>
-        </div>
+        </div >
     );
 }

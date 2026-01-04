@@ -1,4 +1,5 @@
 import { Search, Plus, X, Trash2, Info } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ interface ScanResult {
 }
 
 export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult }: { tabId: string; name: string; connectionId: number; db?: number; savedResult?: any }) {
+  const { t } = useTranslation();
   const [keys, setKeys] = useState<KeyDetail[]>(savedResult?.keys || []);
   const [filter, setFilter] = useState("");
   const [cursor, setCursor] = useState<string>(savedResult?.cursor || "0");
@@ -594,7 +596,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
             variant="outline"
             className="text-xs font-normal bg-green-50 text-green-700 border-green-200"
           >
-            Connected
+            {t('redis.connected', 'Connected')}
           </Badge>
           <span className="text-xs text-muted-foreground">DB {db}</span>
         </div>
@@ -604,7 +606,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
             className="h-8 gap-1 ml-2"
             onClick={() => setIsAddKeyDialogOpen(true)}
           >
-            <Plus className="w-4 h-4" /> Key
+            <Plus className="w-4 h-4" /> {t('redis.addKey', 'Key')}
           </Button>
         </div>
       </div>
@@ -620,7 +622,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
                   className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground"
                 />
                 <Input
-                  placeholder="Filter by Key Name... (empty: all, text: exact, prefix*: prefix)"
+                  placeholder={t('redis.filterKeysPlaceholder', 'Filter by Key Name...')}
                   className="pl-8 h-9"
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
@@ -628,7 +630,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
               </div>
               <div className="flex justify-between items-center mt-2 px-1">
                 <span className="text-xs text-muted-foreground">
-                  Total: {keys.length}
+                  {t('common.total', 'Total')}: {keys.length}
                   {hasMore ? "+" : ""}
                 </span>
                 <Button
@@ -644,7 +646,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
                     }
                   }}
                 >
-                  {loading ? "Scanning..." : "Scan More"}
+                  {loading ? t('common.scanning', 'Scanning...') : t('common.scanMore', 'Scan More')}
                 </Button>
               </div>
             </div>
@@ -683,7 +685,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
                 ))}
                 {keys.length === 0 && !loading && (
                   <div className="p-8 text-center text-muted-foreground text-sm">
-                    No keys found
+                    {t('redis.noKeys', 'No keys found')}
                   </div>
                 )}
 
@@ -692,7 +694,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
 
                 {loading && (
                   <div className="p-4 text-center text-muted-foreground text-xs">
-                    Loading...
+                    {t('common.loading', 'Loading...')}
                   </div>
                 )}
               </div>
@@ -727,7 +729,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 hover:text-destructive"
-                      title="Delete Key"
+                      title={t('redis.deleteKey', 'Delete Key')}
                       onClick={() => setIsDeleteDialogOpen(true)}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -746,15 +748,15 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
                 {/* Metadata Bar */}
                 <div className="px-4 py-2 border-b bg-muted/10 flex gap-6 text-xs text-muted-foreground">
                   <div className="flex gap-1">
-                    <span className="font-medium">Size:</span>
+                    <span className="font-medium">{t('redis.size', 'Size')}:</span>
                     <span>{formatSize(selectedKeyItem?.length)}</span>
                   </div>
                   <div className="flex gap-1">
-                    <span className="font-medium">TTL:</span>
+                    <span className="font-medium">{t('redis.ttl', 'TTL')}:</span>
                     <span>{formatTTL(selectedKeyItem?.ttl)}</span>
                   </div>
                   <div className="flex gap-1">
-                    <span className="font-medium">Type:</span>
+                    <span className="font-medium">{t('redis.type', 'Type')}:</span>
                     <span className="uppercase">{selectedKeyItem?.type}</span>
                   </div>
                 </div>
@@ -763,7 +765,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
                 <div className="flex-1 overflow-hidden flex flex-col">
                   {valueLoading ? (
                     <div className="flex items-center justify-center h-full text-muted-foreground">
-                      Loading value...
+                      {t('redis.loadingValue', 'Loading value...')}
                     </div>
                   ) : (
                     <div className="flex-1 min-h-0">

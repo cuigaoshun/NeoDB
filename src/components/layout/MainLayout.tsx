@@ -8,10 +8,12 @@ import { useAppStore } from "@/store/useAppStore";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ActivityBar, ConnectionSidebar } from "./ActivityBar";
 import { CommandConsole } from "@/components/ui/CommandConsole";
+import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 export function MainLayout() {
+    const { t } = useTranslation();
     const activeTabId = useAppStore((state) => state.activeTabId);
     const tabs = useAppStore((state) => state.tabs);
 
@@ -127,12 +129,12 @@ export function MainLayout() {
                                                             savedResult={activeTab.savedResult}
                                                         />
                                                     ) : (
-                                                        <div>Unsupported Type: {activeTab.type}</div>
+                                                        <div>{t('common.unsupportedType')}: {activeTab.type}</div>
                                                     )
                                                 ) : (
                                                     <div className="h-full flex items-center justify-center text-muted-foreground bg-muted/5">
                                                         <div className="text-center">
-                                                            <p>Select a tab or go Home to connect.</p>
+                                                            <p>{t('common.selectTab')}</p>
                                                         </div>
                                                     </div>
                                                 )}

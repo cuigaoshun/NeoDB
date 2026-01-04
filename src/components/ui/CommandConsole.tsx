@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Terminal } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useConsoleStore, CommandEntry } from '@/store/useConsoleStore';
@@ -9,6 +10,7 @@ interface CommandConsoleProps {
 }
 
 export function CommandConsole({ className = '', style }: CommandConsoleProps) {
+  const { t } = useTranslation();
   const { commands, clearCommands } = useConsoleStore();
   const [maxHeight, setMaxHeight] = useState(300);
   const [isResizing, setIsResizing] = useState(false);
@@ -22,7 +24,7 @@ export function CommandConsole({ className = '', style }: CommandConsoleProps) {
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
-      
+
       const newHeight = window.innerHeight - e.clientY;
       setMaxHeight(Math.max(200, Math.min(600, newHeight)));
     };
@@ -56,7 +58,7 @@ export function CommandConsole({ className = '', style }: CommandConsoleProps) {
   const formatTimestamp = (date: Date) => {
     // date might be a string if rehydrated from JSON, ensure it is Date
     const d = date instanceof Date ? date : new Date(date);
-    return d.toLocaleTimeString('zh-CN', { 
+    return d.toLocaleTimeString('zh-CN', {
       hour12: false,
       hour: '2-digit',
       minute: '2-digit',
@@ -67,16 +69,16 @@ export function CommandConsole({ className = '', style }: CommandConsoleProps) {
   return (
     <div className={`h-full bg-background border text-foreground font-mono text-xs ${className}`} style={style}>
       {/* Resize handle */}
-      <div 
+      <div
         className="h-1 bg-border cursor-ns-resize hover:bg-primary transition-colors"
         onMouseDown={() => setIsResizing(true)}
       />
-      
+
       {/* Console header */}
       <div className="flex items-center justify-between px-3 py-1 border-b bg-muted">
         <div className="flex items-center gap-2">
           <Terminal className="w-3 h-3 text-primary" />
-          <span className="text-foreground font-medium">Command Console</span>
+          <span className="text-foreground font-medium">{t('common.terminal', 'Command Console')}</span>
           <span className="text-muted-foreground">
             [{commands.length}]
           </span>
@@ -86,20 +88,20 @@ export function CommandConsole({ className = '', style }: CommandConsoleProps) {
             onClick={clearCommands}
             className="px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10 rounded transition-colors"
           >
-            Clear
+            {t('common.clear', 'Clear')}
           </button>
         </div>
       </div>
 
       {/* Console content */}
-      <ScrollArea 
-        className="h-full bg-background" 
+      <ScrollArea
+        className="h-full bg-background"
         style={{ height: `${maxHeight - 30}px`, maxHeight: `${maxHeight - 30}px` }}
       >
         <div className="p-2 space-y-1">
           {commands.length === 0 ? (
             <div className="text-muted-foreground text-sm py-2">
-              No commands executed yet...
+              {t('common.noCommands', 'No commands executed yet...')}
             </div>
           ) : (
             commands.map((cmd) => (
@@ -127,7 +129,7 @@ export function CommandConsole({ className = '', style }: CommandConsoleProps) {
                     onClick={() => copyCommand(cmd.command)}
                     className="text-muted-foreground hover:text-foreground text-xs transition-colors"
                   >
-                    Copy
+                    {t('common.copy', 'Copy')}
                   </button>
                 </div>
                 <div className="text-foreground break-all">

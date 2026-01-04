@@ -1,4 +1,5 @@
 import { Search, RefreshCw, Copy, Trash2, Clock } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -11,6 +12,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { TextFormatterWrapper } from "@/components/common/TextFormatterWrapper";
 
 export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: { tabId: string; name: string; connectionId: number; savedResult?: any }) {
+    const { t } = useTranslation();
     const [searchKey, setSearchKey] = useState(savedResult?.searchKey || "");
     const [loading, setLoading] = useState(false);
     const [selectedValue, setSelectedValue] = useState<string | null>(savedResult?.selectedValue || null);
@@ -95,7 +97,7 @@ export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: {
 
     const handleDelete = async () => {
         if (!searchKey) return;
-        if (!confirm(`Are you sure you want to delete key "${searchKey}"?`)) return;
+        if (!confirm(t('memcached.deleteConfirm', { key: searchKey }))) return;
 
         const startTime = Date.now();
 
@@ -147,12 +149,12 @@ export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: {
                     {/* Search Section */}
                     <div className="flex flex-col gap-4">
                         <div className="flex flex-col gap-2">
-                            <label className="text-lg font-semibold">Search Key</label>
+                            <label className="text-lg font-semibold">{t('memcached.searchKey')}</label>
                             <div className="flex gap-2">
                                 <Input
                                     value={searchKey}
                                     onChange={(e) => setSearchKey(e.target.value)}
-                                    placeholder="Enter key..."
+                                    placeholder={t('memcached.enterKey')}
                                     className="flex-1"
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') {
@@ -162,7 +164,7 @@ export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: {
                                 />
                                 <Button onClick={() => handleSearch()} disabled={loading || !searchKey.trim()}>
                                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
-                                    Search
+                                    {t('common.searchPlaceholder').replace('...', '')}
                                 </Button>
                             </div>
                         </div>
@@ -171,7 +173,7 @@ export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: {
                         {history.length > 0 && (
                             <div className="flex flex-col gap-2">
                                 <label className="text-sm text-muted-foreground flex items-center gap-1">
-                                    <Clock className="w-3 h-3" /> Recent Queries
+                                    <Clock className="w-3 h-3" /> {t('memcached.recentQueries')}
                                 </label>
                                 <div className="flex flex-wrap gap-2">
                                     {history.map((k) => (
@@ -204,7 +206,7 @@ export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: {
                                                 navigator.clipboard.writeText(selectedValue);
                                             }
                                         }}
-                                        title="Copy Value"
+                                        title={t('common.copy')}
                                     >
                                         <Copy className="w-4 h-4" />
                                     </Button>
@@ -213,7 +215,7 @@ export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: {
                                         size="icon"
                                         className="h-8 w-8 text-destructive hover:text-destructive"
                                         onClick={handleDelete}
-                                        title="Delete Key"
+                                        title={t('redis.deleteKey')}
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </Button>
@@ -238,7 +240,7 @@ export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: {
                     {!selectedValue && !loading && (
                         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground opacity-50">
                             <Search className="w-12 h-12 mb-4" />
-                            <p>Enter a key to search for its value</p>
+                            <p>{t('memcached.enterKeyToSearch')}</p>
                         </div>
                     )}
                 </div>
