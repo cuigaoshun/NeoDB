@@ -1,17 +1,26 @@
 import { useState } from "react";
-import { Connection } from "@/store/useAppStore";
+import { Connection, useAppStore } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
-import { 
-  Database, 
-  Server, 
-  ChevronRight, 
-  ChevronDown, 
-  Table as TableIcon,
-  Loader2,
-  FileCode
+import {
+    Database,
+    Server,
+    ChevronRight,
+    ChevronDown,
+    Table as TableIcon,
+    Loader2,
+    FileCode
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { addCommandToConsole } from "@/components/ui/CommandConsole";
+import {
+    ContextMenu,
+    ContextMenuContent,
+    ContextMenuItem,
+    ContextMenuTrigger,
+    ContextMenuSeparator,
+} from "@/components/ui/context-menu";
+import { useTranslation } from "react-i18next";
+import { CreateTableDialog } from "@/components/workspace/CreateTableDialog";
 
 interface ConnectionTreeItemProps {
     connection: Connection;
@@ -26,6 +35,9 @@ interface SqlResult {
 }
 
 export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTable, filterTerm }: ConnectionTreeItemProps) {
+    const { t } = useTranslation();
+    const addTab = useAppStore(state => state.addTab);
+
     const [isExpanded, setIsExpanded] = useState(false);
     const [databases, setDatabases] = useState<string[]>([]);
     const [isLoadingDatabases, setIsLoadingDatabases] = useState(false);
@@ -35,12 +47,16 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
     const [tables, setTables] = useState<Record<string, string[]>>({});
     const [loadingTables, setLoadingTables] = useState<Set<string>>(new Set());
 
+    // Create table dialog state
+    const [showCreateTableDialog, setShowCreateTableDialog] = useState(false);
+    const [createTableDbName, setCreateTableDbName] = useState<string>('');
+
     // System databases to exclude
     const SYSTEM_DBS = new Set(['information_schema', 'mysql', 'performance_schema', 'sys']);
 
     // Auto-expand if filter matches something inside (and we have data)
     // This is tricky with lazy loading. We only filter what we have.
-    
+
     const isMatch = (text: string) => !filterTerm || text.toLowerCase().includes(filterTerm.toLowerCase());
 
     // Filter databases to display
@@ -64,7 +80,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
 
     const toggleExpand = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        
+
         if (!isExpanded) {
             setIsExpanded(true);
             // Load databases if not loaded yet (for supported types)
@@ -109,12 +125,12 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                 });
 
                 let count = 16; // Default fallback
-                
+
                 // Output format for CONFIG GET databases is usually ["databases", "16"]
                 if (Array.isArray(result.output) && result.output.length >= 2) {
                     const key = result.output[0];
                     const value = result.output[1];
-                    
+
                     if (key === 'databases') {
                         const parsed = parseInt(value);
                         if (!isNaN(parsed) && parsed > 0) {
@@ -135,9 +151,9 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
             } catch (err: any) {
                 const errorMsg = String(err);
                 if (errorMsg.toLowerCase().includes("failed to connect") || errorMsg.toLowerCase().includes("connection refused")) {
-                     setError(errorMsg);
-                     // If connection fails, do NOT fallback to 16 DBs, just show error
-                     setDatabases([]); 
+                    setError(errorMsg);
+                    // If connection fails, do NOT fallback to 16 DBs, just show error
+                    setDatabases([]);
                 } else {
                     console.warn("Failed to fetch Redis config, falling back to 16:", err);
                     const redisDbs = Array.from({ length: 16 }, (_, i) => i.toString());
@@ -161,13 +177,13 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                 connectionId: connection.id,
                 sql: 'SHOW DATABASES'
             });
-            
+
             // Robustly parse result by taking the first value of each row
             const dbs = result.rows
                 .map(row => Object.values(row)[0] as string)
                 .filter(Boolean)
                 .filter(db => !SYSTEM_DBS.has(db.toLowerCase()));
-                
+
             setDatabases(dbs);
 
             addCommandToConsole({
@@ -195,7 +211,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
 
     const toggleDatabaseExpand = async (dbName: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        
+
         // For Redis, clicking a DB just selects it (opens tab)
         if (connection.db_type === 'redis') {
             onSelectTable?.(connection, dbName, ""); // Table name empty for Redis
@@ -209,7 +225,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
         } else {
             newExpanded.add(dbName);
             setExpandedDatabases(newExpanded);
-            
+
             if (!tables[dbName]) {
                 await loadTables(dbName);
             }
@@ -227,7 +243,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
 
         try {
             let tableNames: string[] = [];
-            
+
             if (connection.db_type === 'sqlite') {
                 command = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;";
                 const result = await invoke<SqlResult>('execute_sqlite_sql', {
@@ -243,7 +259,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                     connectionId: connection.id,
                     sql: command
                 });
-                
+
                 // Robustly parse result by taking the first value of each row
                 tableNames = result.rows
                     .map(row => Object.values(row)[0] as string)
@@ -263,7 +279,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
             });
         } catch (err) {
             console.error(`Failed to load tables for ${dbName}:`, err);
-            
+
             addCommandToConsole({
                 databaseType: dbType as any,
                 command: command || `Load tables for ${dbName}`,
@@ -278,11 +294,75 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
         }
     };
 
+    // 右键菜单处理函数
+    const handleViewTableSchema = (dbName: string, tableName: string) => {
+        const tabId = `schema-${connection.id}-${dbName}-${tableName}`;
+        addTab({
+            id: tabId,
+            title: `${tableName} - ${t('mysql.tableStructure')}`,
+            type: connection.db_type,
+            tabType: 'table-schema',
+            connectionId: connection.id,
+            schemaInfo: {
+                dbName,
+                tableName
+            }
+        });
+    };
+
+    const handleCreateTable = (dbName: string) => {
+        setCreateTableDbName(dbName);
+        setShowCreateTableDialog(true);
+    };
+
+    const handleDeleteTable = async (dbName: string, tableName: string) => {
+        if (!confirm(t('mysql.confirmDeleteTable', { table: tableName }))) {
+            return;
+        }
+
+        try {
+            const sql = `DROP TABLE \`${dbName}\`.\`${tableName}\``;
+            const startTime = Date.now();
+
+            await invoke("execute_sql", {
+                connectionId: connection.id,
+                sql
+            });
+
+            addCommandToConsole({
+                databaseType: connection.db_type as any,
+                command: sql,
+                duration: Date.now() - startTime,
+                success: true
+            });
+
+            // 刷新表列表
+            await loadTables(dbName);
+            alert(t('common.success'));
+        } catch (err: any) {
+            console.error("Failed to drop table:", err);
+            alert(t('common.error') + ': ' + String(err));
+
+            addCommandToConsole({
+                databaseType: connection.db_type as any,
+                command: `DROP TABLE \`${dbName}\`.\`${tableName}\``,
+                duration: 0,
+                success: false,
+                error: String(err)
+            });
+        }
+    };
+
+    const handleRefreshTables = async (dbName: string) => {
+        await loadTables(dbName);
+    };
+
+
     // Other types (postgres) might not support tree view yet
     if (connection.db_type !== 'mysql' && connection.db_type !== 'redis' && connection.db_type !== 'sqlite') {
         // Simple filter for non-supported types
         if (filterTerm && !isMatch(connection.name)) return null;
-        
+
         return (
             <div
                 onClick={() => onSelect(connection)}
@@ -298,13 +378,13 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
             </div>
         );
     }
-    
+
     // For MySQL & Redis & SQLite:
     const filteredDatabases = getFilteredDatabases();
-    
+
     const selfMatch = isMatch(connection.name);
     const hasMatchingChildren = filteredDatabases.length > 0;
-    
+
     // Hide if loaded and no matches
     if (filterTerm && !selfMatch && databases.length > 0 && !hasMatchingChildren) {
         return null;
@@ -322,13 +402,13 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                 )}
                 onClick={handleSelect}
             >
-                <button 
+                <button
                     className="p-0.5 rounded-sm hover:bg-background/20 text-muted-foreground"
                     onClick={toggleExpand}
                 >
                     {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                 </button>
-                
+
                 {connection.db_type === 'redis' ? (
                     <Server className="h-4 w-4 text-red-500 shrink-0" />
                 ) : connection.db_type === 'sqlite' ? (
@@ -337,7 +417,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                     <Database className="h-4 w-4 text-blue-500 shrink-0" />
                 )}
                 <span className="truncate flex-1">
-                    {connection.name} 
+                    {connection.name}
                 </span>
             </div>
 
@@ -360,7 +440,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                     ) : (
                         filteredDatabases.map(db => (
                             <div key={db} className="flex flex-col">
-                                <div 
+                                <div
                                     className="flex items-center gap-1 px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent text-muted-foreground hover:text-foreground text-xs"
                                     onClick={(e) => toggleDatabaseExpand(db, e)}
                                 >
@@ -369,7 +449,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                                             {expandedDatabases.has(db) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
                                         </button>
                                     )}
-                                    
+
                                     <Database className={cn(
                                         "h-3 w-3 shrink-0",
                                         connection.db_type === 'redis' ? "text-red-400/70" : "text-yellow-500/70"
@@ -389,17 +469,104 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                                             </div>
                                         ) : (
                                             getFilteredTables(db).map(table => (
-                                                <div 
-                                                    key={table}
-                                                    className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent text-muted-foreground hover:text-foreground text-xs ml-4"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onSelectTable?.(connection, db, table);
-                                                    }}
-                                                >
-                                                    <TableIcon className="h-3 w-3 text-blue-400/70 shrink-0" />
-                                                    <span className="truncate">{table}</span>
-                                                </div>
+                                                <ContextMenu key={table}>
+                                                    <ContextMenuTrigger>
+                                                        <div
+                                                            className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent text-muted-foreground hover:text-foreground text-xs ml-4"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onSelectTable?.(connection, db, table);
+                                                            }}
+                                                        >
+                                                            <TableIcon className="h-3 w-3 text-blue-400/70 shrink-0" />
+                                                            <span className="truncate">{table}</span>
+                                                        </div>
+                                                    </ContextMenuTrigger>
+                                                    <ContextMenuContent>
+                                                        <ContextMenuItem
+                                                            onClick={() => onSelectTable?.(connection, db, table)}
+                                                        >
+                                                            {t('mysql.viewData')}
+                                                        </ContextMenuItem>
+                                                        <ContextMenuItem
+                                                            onClick={() => handleViewTableSchema(db, table)}
+                                                        >
+                                                            {t('mysql.viewSchema')}
+                                                        </ContextMenuItem>
+                                                        <ContextMenuSeparator />
+                                                        <ContextMenuItem
+                                                            onClick={() => handleCreateTable(db)}
+                                                        >
+                                                            {t('mysql.createTable')}
+                                                        </ContextMenuItem>
+                                                        <ContextMenuItem
+                                                            onClick={() => handleDeleteTable(db, table)}
+                                                            className="text-red-600"
+                                                        >
+                                                            {t('mysql.deleteTable')}
+                                                        </ContextMenuItem>
+                                                    </ContextMenuContent>
+                                                </ContextMenu>
+                                            ))
+                                        )}
+
+                                        <Database className={cn(
+                                            "h-3 w-3 shrink-0",
+                                            connection.db_type === 'redis' ? "text-red-400/70" : "text-yellow-500/70"
+                                        )} />
+                                        <span className="truncate">
+                                            {connection.db_type === 'redis' ? `DB ${db}` : db}
+                                        </span>
+                                    </div>
+
+                                    {/* Tables List (MySQL & SQLite) */}
+                                {(connection.db_type === 'mysql' || connection.db_type === 'sqlite') && expandedDatabases.has(db) && (
+                                    <div className="ml-4 border-l border-border/40 pl-1">
+                                        {loadingTables.has(db) ? (
+                                            <div className="px-4 py-1 flex items-center gap-2 text-muted-foreground text-xs">
+                                                <Loader2 className="h-3 w-3 animate-spin" />
+                                                <span>Loading...</span>
+                                            </div>
+                                        ) : (
+                                            getFilteredTables(db).map(table => (
+                                                <ContextMenu key={table}>
+                                                    <ContextMenuTrigger>
+                                                        <div
+                                                            className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent text-muted-foreground hover:text-foreground text-xs ml-4"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onSelectTable?.(connection, db, table);
+                                                            }}
+                                                        >
+                                                            <TableIcon className="h-3 w-3 text-blue-400/70 shrink-0" />
+                                                            <span className="truncate">{table}</span>
+                                                        </div>
+                                                    </ContextMenuTrigger>
+                                                    <ContextMenuContent>
+                                                        <ContextMenuItem
+                                                            onClick={() => onSelectTable?.(connection, db, table)}
+                                                        >
+                                                            {t('mysql.viewData')}
+                                                        </ContextMenuItem>
+                                                        <ContextMenuItem
+                                                            onClick={() => handleViewTableSchema(db, table)}
+                                                        >
+                                                            {t('mysql.viewSchema')}
+                                                        </ContextMenuItem>
+                                                        <ContextMenuSeparator />
+                                                        <ContextMenuItem
+                                                            onClick={() => handleCreateTable(db)}
+                                                        >
+                                                            {t('mysql.createTable')}
+                                                        </ContextMenuItem>
+                                                        <ContextMenuItem
+                                                            onClick={() => handleDeleteTable(db, table)}
+                                                            className="text-red-600"
+                                                        >
+                                                            {t('mysql.deleteTable')}
+                                                        </ContextMenuItem>
+                                                    </ContextMenuContent>
+                                                </ContextMenu>
                                             ))
                                         )}
                                     </div>
@@ -410,5 +577,25 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                 </div>
             )}
         </div>
+
+            {/* Create Table Dialog */ }
+    {
+        connection.db_type === 'mysql' && (
+            <CreateTableDialog
+                open={showCreateTableDialog}
+                onOpenChange={setShowCreateTableDialog}
+                connectionId={connection.id}
+                dbName={createTableDbName}
+                onSuccess={() => {
+                    // 刷新表列表
+                    if (createTableDbName) {
+                        loadTables(createTableDbName);
+                    }
+                }}
+            />
+        )
+    }
+        </>
     );
 }
+```

@@ -3,6 +3,7 @@ import { MysqlWorkspace } from "../workspace/MysqlWorkspace";
 import { RedisWorkspace } from "../workspace/RedisWorkspace";
 import { MemcachedWorkspace } from "../workspace/MemcachedWorkspace";
 import { SqliteWorkspace } from "../workspace/SqliteWorkspace";
+import { TableSchemaTab } from "../workspace/TableSchemaTab";
 import { ConnectionManager } from "../workspace/ConnectionManager";
 import { useAppStore } from "@/store/useAppStore";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
@@ -129,6 +130,14 @@ export function MainLayout() {
                                                             dbName={activeTab.dbName}
                                                             tableName={activeTab.tableName}
                                                             savedResult={activeTab.savedResult}
+                                                        />
+                                                    ) : activeTab.tabType === 'table-schema' && activeTab.schemaInfo ? (
+                                                        <TableSchemaTab
+                                                            key={activeTab.id}
+                                                            tabId={activeTab.id}
+                                                            connectionId={activeTab.connectionId}
+                                                            dbName={activeTab.schemaInfo.dbName}
+                                                            tableName={activeTab.schemaInfo.tableName}
                                                         />
                                                     ) : (
                                                         <div>{t('common.unsupportedType')}: {activeTab.type}</div>

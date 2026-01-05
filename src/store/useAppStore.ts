@@ -14,10 +14,13 @@ export interface Connection {
   created_at?: string;
 }
 
+export type TabType = 'connection' | 'query' | 'table-schema';
+
 export interface Tab {
   id: string;
   title: string;
-  type: DbType;
+  type: DbType; // 数据库类型
+  tabType?: TabType; // 标签页类型，默认为 'query'
   connectionId: number;
   active?: boolean;
   initialSql?: string;
@@ -25,6 +28,11 @@ export interface Tab {
   dbName?: string;
   tableName?: string;
   savedResult?: any;
+  // 表结构标签页专用字段
+  schemaInfo?: {
+    dbName: string;
+    tableName: string;
+  };
 }
 
 interface AppState {

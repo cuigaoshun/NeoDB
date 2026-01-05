@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
-import { Play, Loader2, FileCode, Hash, Type, Calendar, Binary, Trash2, Plus, Copy, Check, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Play, Loader2, FileCode, Hash, Type, Calendar, Binary, Trash2, Plus, Copy, Check, X, ChevronLeft, ChevronRight, Table2 } from "lucide-react";
 import { TextFormatterWrapper } from "@/components/common/TextFormatterWrapper";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -599,6 +599,8 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     };
 
 
+
+
     const connection = useAppStore(state => state.connections.find(c => c.id === connectionId));
     const connectionName = connection?.name || name;
 
@@ -688,7 +690,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
 
             <div className="flex-1 flex overflow-hidden">
                 <ResizablePanelGroup direction="horizontal">
-                    <ResizablePanel defaultSize={showDDL ? 70 : 100} minSize={30}>
+                    <ResizablePanel defaultSize={(showDDL || showSchema) ? 70 : 100} minSize={30}>
                         <div className="h-full flex flex-col">
                             {/* Query Area */}
                             <div className="h-1/3 p-4 border-b bg-background">
@@ -988,6 +990,23 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                         </div>
                     </ResizablePanel>
 
+                    {showSchema && (
+                        <>
+                            <ResizableHandle />
+                            <ResizablePanel defaultSize={30} minSize={25} maxSize={60}>
+                                <TableSchemaManager
+                                    connectionId={connectionId}
+                                    dbName={dbName || ''}
+                                    tableName={tableName || ''}
+                                    onRefresh={() => {
+                                        // 可选：刷新主查询结果
+                                        handleExecute();
+                                    }}
+                                />
+                            </ResizablePanel>
+                        </>
+                    )}
+
                     {showDDL && (
                         <>
                             <ResizableHandle />
@@ -1019,6 +1038,18 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                     )}
                 </ResizablePanelGroup>
             </div>
+
+            {/* Create Table Dialog */}
+            <CreateTableDialog
+                open={showCreateTable}
+                onOpenChange={setShowCreateTable}
+                connectionId={connectionId}
+                dbName={dbName || ''}
+                onSuccess={() => {
+                    // 可选：刷新侧边栏或显示成功消息
+                    alert(t('common.success') + ': ' + t('mysql.createTable'));
+                }}
+            />
         </div >
     );
 }
