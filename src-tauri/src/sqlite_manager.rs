@@ -75,58 +75,31 @@ fn row_to_json(row: &SqliteRow) -> Map<String, Value> {
 
     for (i, column) in row.columns().iter().enumerate() {
         let name = column.name();
-        let type_info = column.type_info();
-        let type_name = type_info.name();
-
-        // SQLite 类型比较简单: NULL, INTEGER, REAL, TEXT, BLOB
-        // sqlx 映射:
-        // INTEGER -> i64, i32, i16, i8, bool
-        // REAL -> f64
-        // TEXT -> String
         
-        // 注意：SQLite 是弱类型，type_name 可能是建表时指定的类型，也可能是实际存储类型
+        // SQLite 的 type_name 对于 PRAGMA 等命令可能不准确（都是 NULL）
+        // 所以我们应该尝试按顺序获取各种类型的值
         
-        let value: Value = match type_name {
-            "NULL" => Value::Null,
-            "INTEGER" => {
-                // Try as i64 first
-                if let Ok(v) = row.try_get::<i64, _>(i) {
-                    Value::Number(v.into())
-                } else if let Ok(v) = row.try_get::<bool, _>(i) {
-                    Value::Bool(v)
-                } else {
-                    Value::Null
-                }
-            },
-            "REAL" => {
-                if let Ok(v) = row.try_get::<f64, _>(i) {
-                    Value::from(v)
-                } else {
-                    Value::Null
-                }
-            },
-            "TEXT" => {
-                row.try_get::<String, _>(i).map(Value::String).unwrap_or(Value::Null)
-            },
-            "BLOB" => {
-                // Blob 暂不显示或显示占位符
-                Value::String("<BLOB>".to_string())
-            },
-            _ => {
-                // Fallback strategies for other declared types (e.g. VARCHAR, DATETIME) which are stored as TEXT or INTEGER or REAL in SQLite
-                
-                // Try common types
-                if let Ok(v) = row.try_get::<i64, _>(i) {
-                    Value::Number(v.into())
-                } else if let Ok(v) = row.try_get::<f64, _>(i) {
-                    Value::from(v)
-                } else if let Ok(v) = row.try_get::<String, _>(i) {
-                    Value::String(v)
-                } else {
-                    Value::Null
-                }
+        let value: Value = 
+            // 先尝试整数
+            if let Ok(v) = row.try_get::<i64, _>(i) {
+                Value::Number(v.into())
             }
-        };
+            // 再尝试浮点数
+            else if let Ok(v) = row.try_get::<f64, _>(i) {
+                Value::from(v)
+            }
+            // 再尝试字符串
+            else if let Ok(v) = row.try_get::<String, _>(i) {
+                Value::String(v)
+            }
+            // 再尝试布尔值
+            else if let Ok(v) = row.try_get::<bool, _>(i) {
+                Value::Bool(v)
+            }
+            // 最后是 NULL
+            else {
+                Value::Null
+            };
 
         json_row.insert(name.to_string(), value);
     }

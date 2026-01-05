@@ -126,6 +126,8 @@ export function MainLayout() {
                                                             connectionId={activeTab.connectionId}
                                                             initialSql={activeTab.initialSql}
                                                             savedSql={activeTab.currentSql}
+                                                            dbName={activeTab.dbName}
+                                                            tableName={activeTab.tableName}
                                                             savedResult={activeTab.savedResult}
                                                         />
                                                     ) : (
