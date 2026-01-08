@@ -106,89 +106,99 @@ export function minifyJSON(text: string): FormatResult {
  * Improved version supporting nested arrays and objects
  */
 export function parsePhpSerialize(text: string): FormatResult {
-    let offset = 0;
-
-    function parse(): any {
-        const type = text[offset];
-        offset += 2; // skip type and colon
-
-        switch (type) {
-            case 'N': // null
-                return null;
-            case 'b': { // boolean
-                const end = text.indexOf(';', offset);
-                const value = text.substring(offset, end) === '1';
-                offset = end + 1;
-                return value;
-            }
-            case 'i': { // integer
-                const end = text.indexOf(';', offset);
-                const value = parseInt(text.substring(offset, end));
-                offset = end + 1;
-                return value;
-            }
-            case 'd': { // float
-                const end = text.indexOf(';', offset);
-                const value = parseFloat(text.substring(offset, end));
-                offset = end + 1;
-                return value;
-            }
-            case 's': { // string
-                const lengthEnd = text.indexOf(':', offset);
-                const length = parseInt(text.substring(offset, lengthEnd));
-                offset = lengthEnd + 2; // skip length and :"
-                const value = text.substring(offset, offset + length);
-                offset += length + 2; // skip string and ";
-                return value;
-            }
-            case 'a': { // array
-                const lengthEnd = text.indexOf(':', offset);
-                const length = parseInt(text.substring(offset, lengthEnd));
-                offset = lengthEnd + 2; // skip length and :{
-                const result: any = {};
-                let isArray = true;
-                for (let i = 0; i < length; i++) {
-                    const key = parse();
-                    const value = parse();
-                    result[key] = value;
-                    if (key !== i) isArray = false;
-                }
-                offset += 1; // skip }
-                return isArray ? Object.values(result) : result;
-            }
-            case 'O': { // object
-                const nameLengthEnd = text.indexOf(':', offset);
-                const nameLength = parseInt(text.substring(offset, nameLengthEnd));
-                offset = nameLengthEnd + 2; // skip length and :"
-                const className = text.substring(offset, offset + nameLength);
-                offset += nameLength + 2; // skip name and ":
-
-                const propsLengthEnd = text.indexOf(':', offset);
-                const propsLength = parseInt(text.substring(offset, propsLengthEnd));
-                offset = propsLengthEnd + 2; // skip length and :{
-
-                const properties: any = { __className: className };
-                for (let i = 0; i < propsLength; i++) {
-                    const key = parse();
-                    const value = parse();
-                    properties[key] = value;
-                }
-                offset += 1; // skip }
-                return properties;
-            }
-            default:
-                throw new Error(`Unknown PHP type: ${type}`);
-        }
-    }
-
     try {
         const trimmed = text.trim();
         if (!trimmed) {
             return { success: false, content: text, error: 'Empty content' };
         }
 
-        // Reset offset for actual text
-        offset = 0;
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder();
+        const bytes = encoder.encode(trimmed);
+
+        let offset = 0;
+
+        function readUntil(char: string): string {
+            const charCode = char.charCodeAt(0);
+            let end = offset;
+            while (end < bytes.length && bytes[end] !== charCode) {
+                end++;
+            }
+            const sub = bytes.subarray(offset, end);
+            offset = end + 1; // skip delimiter
+            return decoder.decode(sub);
+        }
+
+        function parse(): any {
+            if (offset >= bytes.length) return null;
+            const type = String.fromCharCode(bytes[offset]);
+            offset += 2; // skip type and colon
+
+            switch (type) {
+                case 'N': // null
+                    return null;
+                case 'b': { // boolean
+                    const value = readUntil(';') === '1';
+                    return value;
+                }
+                case 'i': { // integer
+                    const value = parseInt(readUntil(';'), 10);
+                    return value;
+                }
+                case 'd': { // float
+                    const value = parseFloat(readUntil(';'));
+                    return value;
+                }
+                case 's': { // string
+                    const lengthStr = readUntil(':');
+                    const length = parseInt(lengthStr, 10);
+                    offset += 1; // skip "
+
+                    const value = decoder.decode(bytes.subarray(offset, offset + length));
+                    offset += length + 2; // skip content and ";
+                    return value;
+                }
+                case 'a': { // array
+                    const lengthStr = readUntil(':');
+                    const length = parseInt(lengthStr, 10);
+                    offset += 1; // skip {
+                    const result: any = {};
+                    let isArray = true;
+                    for (let i = 0; i < length; i++) {
+                        const key = parse();
+                        const value = parse();
+                        result[key] = value;
+                        if (String(key) !== String(i)) isArray = false;
+                    }
+                    offset += 1; // skip }
+                    return isArray ? Object.values(result) : result;
+                }
+                case 'O': { // object
+                    const nameLengthStr = readUntil(':');
+                    const nameLength = parseInt(nameLengthStr, 10);
+                    offset += 1; // skip "
+
+                    const className = decoder.decode(bytes.subarray(offset, offset + nameLength));
+                    offset += nameLength + 2; // skip name and ":
+
+                    const propsLengthStr = readUntil(':');
+                    const propsLength = parseInt(propsLengthStr, 10);
+                    offset += 1; // skip {
+
+                    const properties: any = { __className: className };
+                    for (let i = 0; i < propsLength; i++) {
+                        const key = parse();
+                        const value = parse();
+                        properties[key] = value;
+                    }
+                    offset += 1; // skip }
+                    return properties;
+                }
+                default:
+                    throw new Error(`Unknown PHP type: ${type}`);
+            }
+        }
+
         const result = parse();
 
         return {
