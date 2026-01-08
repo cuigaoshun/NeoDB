@@ -69,6 +69,38 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     // 主键信息
     const [primaryKeys, setPrimaryKeys] = useState<string[]>([]);
 
+    // 编辑控制状态
+    const [isEditable, setIsEditable] = useState(false);
+    const [editDisabledReason, setEditDisabledReason] = useState<string>('');
+
+    // 判断是否为单表查询
+    const isSingleTableQuery = (sql: string): boolean => {
+        const trimmedSql = sql.trim().toUpperCase();
+
+        // 只处理 SELECT 语句
+        if (!trimmedSql.startsWith('SELECT')) {
+            return false;
+        }
+
+        // 检测是否包含 JOIN 关键字
+        const joinKeywords = ['JOIN', 'INNER JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'OUTER JOIN', 'CROSS JOIN'];
+        if (joinKeywords.some(keyword => trimmedSql.includes(keyword))) {
+            return false;
+        }
+
+        // 检测 FROM 子句中是否有多个表(逗号分隔)
+        const fromMatch = trimmedSql.match(/FROM\s+(.+?)(?:WHERE|GROUP|ORDER|LIMIT|$)/i);
+        if (fromMatch) {
+            const fromClause = fromMatch[1].trim();
+            // 简单检测:如果有逗号,可能是多表
+            if (fromClause.includes(',')) {
+                return false;
+            }
+        }
+
+        return true;
+    };
+
     // Sync SQL changes to global store (debounced)
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -651,9 +683,30 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                 success: true
             });
 
-            // 如果是表查询，检测主键
+            // 如果是表查询,检测主键
             if (dbName && tableName) {
-                detectPrimaryKeys();
+                await detectPrimaryKeys();
+
+                // 判断是否可编辑
+                // 需要延迟一下以确保 primaryKeys 状态已更新
+                setTimeout(() => {
+                    if (primaryKeys.length > 0 && isSingleTableQuery(query)) {
+                        setIsEditable(true);
+                        setEditDisabledReason('');
+                    } else if (primaryKeys.length === 0) {
+                        setIsEditable(false);
+                        setEditDisabledReason('表没有主键,无法编辑');
+                    } else {
+                        setIsEditable(false);
+                        setEditDisabledReason('多表查询不支持直接编辑,请使用 UPDATE 语句');
+                    }
+                }, 100);
+            } else if (!isSingleTableQuery(query)) {
+                setIsEditable(false);
+                setEditDisabledReason('多表查询不支持直接编辑,请使用 UPDATE 语句');
+            } else {
+                setIsEditable(false);
+                setEditDisabledReason('当前查询不支持编辑');
             }
         } catch (err: any) {
             console.error("Execute SQL failed:", err);
@@ -757,8 +810,9 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                 size="sm"
                                 variant="outline"
                                 onClick={handleAddNewRow}
+                                disabled={!isEditable}
                                 className="gap-2"
-                                title={t('common.add', '新增')}
+                                title={!isEditable ? editDisabledReason : t('common.add', '新增')}
                             >
                                 <Plus className="h-3 w-3" />
                                 {t('common.add', '新增')}
@@ -767,8 +821,8 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                 size="sm"
                                 variant="outline"
                                 onClick={handleCopyRow}
-                                disabled={selectedRowIndices.length === 0}
-                                title={t('common.duplicate', '复制') + ` ${selectedRowIndices.length} ` + t('common.items', '条')}
+                                disabled={!isEditable || selectedRowIndices.length === 0}
+                                title={!isEditable ? editDisabledReason : t('common.duplicate', '复制') + ` ${selectedRowIndices.length} ` + t('common.items', '条')}
                                 className="gap-2"
                             >
                                 <Copy className="h-3 w-3" />
@@ -778,9 +832,9 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                 size="sm"
                                 variant="outline"
                                 onClick={handleRowDelete}
-                                disabled={primaryKeys.length === 0 || selectedRowIndices.length === 0}
+                                disabled={!isEditable || selectedRowIndices.length === 0}
                                 className="gap-2 text-red-600 hover:text-red-700"
-                                title={primaryKeys.length === 0 ? t('common.noPrimaryKey') : t('common.delete', '删除') + ` ${selectedRowIndices.length} ` + t('common.items', '条')}
+                                title={!isEditable ? editDisabledReason : t('common.delete', '删除') + ` ${selectedRowIndices.length} ` + t('common.items', '条')}
                             >
                                 <Trash2 className="h-3 w-3" />
                                 {t('common.delete', '删除')} {selectedRowIndices.length > 0 && `(${selectedRowIndices.length})`}
@@ -977,7 +1031,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                             className="cursor-pointer hover:bg-muted/50 px-2 py-1 rounded truncate"
                                                                             onDoubleClick={(e) => {
                                                                                 e.stopPropagation();
-                                                                                tableName && primaryKeys.length > 0 && handleCellEdit(rowIdx, col.name, row[col.name], false);
+                                                                                isEditable && handleCellEdit(rowIdx, col.name, row[col.name], false);
                                                                             }}
                                                                         >
                                                                             {row[col.name] === null ? (
@@ -985,7 +1039,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                             ) : (
                                                                                 <TextFormatterWrapper
                                                                                     content={typeof row[col.name] === 'object' && row[col.name] !== null ? JSON.stringify(row[col.name]) : String(row[col.name])}
-                                                                                    onSave={tableName && primaryKeys.length > 0 ? async (newValue) => {
+                                                                                    onSave={isEditable ? async (newValue) => {
                                                                                         const whereClause = generateWhereClause(row);
                                                                                         const valueStr = newValue === null ? 'NULL' : `'${String(newValue).replace(/'/g, "''")}'`;
                                                                                         const updateSql = `UPDATE \`${dbName}\`.\`${tableName}\` SET \`${col.name}\` = ${valueStr} WHERE ${whereClause}`;
@@ -1017,7 +1071,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                                             });
                                                                                         }
                                                                                     } : undefined}
-                                                                                    readonly={!tableName || primaryKeys.length === 0}
+                                                                                    readonly={!isEditable}
                                                                                     title="Format value"
                                                                                 >
                                                                                     <div className="flex items-center gap-2 cursor-context-menu">
@@ -1098,9 +1152,9 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                 </div>
                                                 <div>
                                                     {t('common.show', '显示')} {currentPage * pageSize + 1} - {currentPage * pageSize + result.rows.length} {t('common.items', '条')}
-                                                    {primaryKeys.length === 0 && tableName && (
+                                                    {!isEditable && editDisabledReason && (
                                                         <span className="ml-4 text-yellow-600 dark:text-yellow-400">
-                                                            ⚠️ {t('common.noPrimaryKey')}
+                                                            ⚠️ {editDisabledReason}
                                                         </span>
                                                     )}
                                                 </div>
