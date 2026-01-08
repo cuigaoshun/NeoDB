@@ -2,7 +2,8 @@ import { useTranslation } from "react-i18next";
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
-import { Play, Loader2, FileCode, Hash, Type, Calendar, Binary, Trash2, Plus, Copy, Check, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Play, Loader2, FileCode, Hash, Type, Calendar, Binary, Trash2, Plus, Copy, Check, X, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { FilterBuilder } from "@/components/workspace/FilterBuilder";
 import { TextFormatterWrapper } from "@/components/common/TextFormatterWrapper";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -111,6 +112,46 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     const [showDDL, setShowDDL] = useState(false);
     const [ddl, setDdl] = useState<string>("");
     const [isLoadingDDL, setIsLoadingDDL] = useState(false);
+
+    // Filter related state
+    const [showFilter, setShowFilter] = useState(false);
+    const [whereClause, setWhereClause] = useState("");
+
+    const applyFilter = (clause: string) => {
+        setWhereClause(clause);
+        // Optional: Auto update SQL?
+        // Let's do it if the user wants. For now just update state.
+        // We can reconstruct the SQL: SELECT * FROM table WHERE ...
+        if (!dbName || !tableName) return;
+
+        let baseQuery = `SELECT * FROM \`${dbName}\`.\`${tableName}\``;
+        if (clause) {
+            baseQuery += ` WHERE ${clause}`;
+        }
+        // Preserve Limit if possible or reset it?
+        // Let's reset limit to default page logic
+        setSql(autoAddLimit(baseQuery + ';', pageSize, 0));
+        setCurrentPage(0);
+        // We can also auto-execute if desired
+    };
+
+    // When whereClause changes from FilterBuilder, we can auto-apply or require a click.
+    // Let's make it auto-apply to the SQL input (preview) but not run until User clicks Run.
+    useEffect(() => {
+        if (!showFilter || !dbName || !tableName) return;
+
+        // Only update if the current SQL looks like a simple select so we don't overwrite complex queries
+        // or just force it for this feature.
+        // Let's rewrite strictly based on filter for now as this is a "Visual Builder" mode.
+        let baseQuery = `SELECT * FROM \`${dbName}\`.\`${tableName}\``;
+        if (whereClause) {
+            baseQuery += ` WHERE ${whereClause}`;
+        }
+        // Add limit
+        const finalSql = autoAddLimit(baseQuery + ';', pageSize, 0);
+        setSql(finalSql);
+    }, [whereClause, showFilter, dbName, tableName, pageSize]);
+
 
     const initialSqlExecuted = useRef(false);
 
@@ -680,6 +721,18 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                         )}
                     </div>
                     <div className="h-4 w-[1px] bg-border mx-2"></div>
+                    {tableName && (
+                        <Button
+                            variant={showFilter ? "secondary" : "ghost"}
+                            size="sm"
+                            onClick={() => setShowFilter(!showFilter)}
+                            title={t('common.filter', 'Filter')}
+                            className={cn("mr-1", showFilter && "bg-muted")}
+                        >
+                            <Filter className="h-4 w-4 mr-1" />
+                            {t('common.filter', 'Filter')}
+                        </Button>
+                    )}
                     <Button
                         size="sm"
                         onClick={handleExecute}
@@ -748,6 +801,15 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                     )}
                 </div>
             </div>
+
+            {showFilter && result?.columns && (
+                <div className="border-b p-2 bg-muted/10">
+                    <FilterBuilder
+                        columns={result.columns}
+                        onChange={setWhereClause}
+                    />
+                </div>
+            )}
 
             <div className="flex-1 flex overflow-hidden">
                 <ResizablePanelGroup direction="horizontal">

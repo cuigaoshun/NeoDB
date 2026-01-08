@@ -90,7 +90,14 @@ const resources = {
         "unsupportedType": "Unsupported Type",
         "selectTab": "Select a tab or go Home to connect.",
         "toggleConsole": "Toggle CLI Console",
-        "noActiveTabs": "No active tabs"
+        "noActiveTabs": "No active tabs",
+        "filter": "Filter",
+        "addCondition": "Add Condition",
+        "addGroup": "Add Group",
+        "operator": "Operator",
+        "value": "Value",
+        "field": "Field",
+        "combineLogic": "Combine top-level items with:"
       },
       "menu": {
         "file": "File",
@@ -308,7 +315,14 @@ const resources = {
         "unsupportedType": "不支持的类型",
         "selectTab": "请选择标签页或回到首页进行连接。",
         "toggleConsole": "打开/关闭命令控制台",
-        "noActiveTabs": "目前没有活动的标签页"
+        "noActiveTabs": "目前没有活动的标签页",
+        "filter": "筛选",
+        "addCondition": "添加条件",
+        "addGroup": "添加组",
+        "operator": "运算符",
+        "value": "值",
+        "field": "字段",
+        "combineLogic": "顶层组合逻辑："
       },
       "menu": {
         "home": "首页",
