@@ -338,24 +338,51 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     const [newRows, setNewRows] = useState<Record<string, any>[]>([]);
     const [selectedRowIndices, setSelectedRowIndices] = useState<number[]>([]);
     // 添加新行
+    // 添加新行
     const handleAddNewRow = async () => {
         let cols = result?.columns;
 
         // 如果没有列信息且有表名，尝试抓取一次结构
         if ((!cols || cols.length === 0) && dbName && tableName) {
+            setIsLoading(true);
             try {
+                // 优先尝试从 INFORMATION_SCHEMA 获取以保证跨 SQL 模式兼容性，或者简单的 LIMIT 0
                 const schemaSql = `SELECT * FROM \`${dbName}\`.\`${tableName}\` LIMIT 0`;
                 const res = await invoke<SqlResult>("execute_sql", {
                     connectionId,
                     sql: schemaSql
                 });
-                cols = res.columns;
-                if (cols && cols.length > 0) {
+
+                if (res.columns && res.columns.length > 0) {
+                    cols = res.columns;
                     setResult(res);
+                } else {
+                    // 如果 LIMIT 0 不行（极少见），尝试 DESCRIBE
+                    const describeRes = await invoke<SqlResult>("execute_sql", {
+                        connectionId,
+                        sql: `DESCRIBE \`${dbName}\`.\`${tableName}\``
+                    });
+                    // DESCRIBE 返回的是行，我们需要转换成 columns 结构
+                    if (describeRes.rows && describeRes.rows.length > 0) {
+                        cols = describeRes.rows.map(r => ({
+                            name: (r.Field || r.column_name || Object.values(r)[0]) as string,
+                            type_name: (r.Type || r.data_type || 'text') as string
+                        }));
+                        const mockResult: SqlResult = {
+                            columns: cols,
+                            rows: [],
+                            affected_rows: 0
+                        };
+                        setResult(mockResult);
+                    }
                 }
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Failed to fetch table structure for adding row:", err);
+                setError(t('common.fetchSchemaFailed', '无法获取表结构信息: ') + (err.message || String(err)));
+                setIsLoading(false);
+                return;
             }
+            setIsLoading(false);
         }
 
         if (cols && cols.length > 0) {
@@ -363,7 +390,17 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
             cols.forEach(col => {
                 emptyRow[col.name] = null;
             });
-            setNewRows([...newRows, emptyRow]);
+
+            setNewRows(prev => {
+                const updated = [...prev, emptyRow];
+                // 开启编辑模式：最后一行，第一列
+                setTimeout(() => {
+                    handleCellEdit(updated.length - 1, cols![0].name, null, true);
+                }, 0);
+                return updated;
+            });
+        } else {
+            setError(t('common.noColumnsFound', '未找到表的列信息，无法新增行'));
         }
     };
 
@@ -648,7 +685,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                     </Button>
 
                     {/* 数据操作按钮 */}
-                    {result && tableName && (
+                    {tableName && (
                         <>
                             <div className="h-4 w-[1px] bg-border mx-2"></div>
                             <Button

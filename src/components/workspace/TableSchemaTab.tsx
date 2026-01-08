@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { TableSchemaManager } from "@/components/workspace/TableSchemaManager";
+import { TableSchemaManager } from "./TableSchemaManager";
 
 interface TableSchemaTabProps {
     tabId: string;
@@ -8,7 +8,7 @@ interface TableSchemaTabProps {
     tableName: string;
 }
 
-export function TableSchemaTab({ tabId, connectionId, dbName, tableName }: TableSchemaTabProps) {
+export function TableSchemaTab({ connectionId, dbName, tableName }: TableSchemaTabProps) {
     const { t } = useTranslation();
 
     return (
@@ -29,9 +29,6 @@ export function TableSchemaTab({ tabId, connectionId, dbName, tableName }: Table
                     connectionId={connectionId}
                     dbName={dbName}
                     tableName={tableName}
-                    onRefresh={() => {
-                        // 可选：刷新后的回调
-                    }}
                 />
             </div>
         </div>
