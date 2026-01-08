@@ -94,12 +94,12 @@ fn row_to_json(row: &MySqlRow) -> Map<String, Value> {
         // 根据类型动态获取值
         let value: Value = match type_name {
             "BOOLEAN" | "TINYINT" => {
-                if let Ok(v) = row.try_get::<bool, _>(i) {
-                    Value::Bool(v)
+                if let Ok(v) = row.try_get::<i8, _>(i) {
+                    Value::Number(v.into())
+                } else if let Ok(v) = row.try_get::<bool, _>(i) {
+                    Value::Number((if v { 1 } else { 0 }).into())
                 } else {
-                    row.try_get::<i8, _>(i)
-                        .map(|v| Value::Number(v.into()))
-                        .unwrap_or(Value::Null)
+                    Value::Null
                 }
             }
             "TINYINT UNSIGNED" => row
@@ -170,6 +170,15 @@ fn row_to_json(row: &MySqlRow) -> Map<String, Value> {
                 .try_get::<NaiveTime, _>(i)
                 .map(|v| Value::String(v.to_string()))
                 .unwrap_or(Value::Null),
+            "JSON" => {
+                if let Ok(v) = row.try_get::<Value, _>(i) {
+                    v
+                } else {
+                    row.try_get::<String, _>(i)
+                        .map(|s| serde_json::from_str(&s).unwrap_or(Value::String(s)))
+                        .unwrap_or(Value::Null)
+                }
+            }
             "VARBINARY" | "BINARY" | "BLOB" | "TINYBLOB" | "MEDIUMBLOB" | "LONGBLOB" => {
                 if let Ok(v) = row.try_get::<Vec<u8>, _>(i) {
                     Value::String(String::from_utf8_lossy(&v).to_string())

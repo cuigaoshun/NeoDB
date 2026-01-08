@@ -209,7 +209,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     // 处理单元格编辑
     const handleCellEdit = (rowIdx: number, colName: string, currentValue: any, isNewRow: boolean) => {
         setEditingCell({ rowIdx, colName, isNewRow });
-        setEditValue(currentValue === null ? '' : String(currentValue));
+        setEditValue(currentValue === null ? '' : (typeof currentValue === 'object' ? JSON.stringify(currentValue) : String(currentValue)));
     };
 
     // 提交单元格编辑
@@ -672,6 +672,12 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                 <span className="text-sm text-muted-foreground whitespace-nowrap">{dbName}</span>
                             </>
                         )}
+                        {tableName && (
+                            <>
+                                <div className="h-3 w-[1px] bg-border mx-1"></div>
+                                <span className="text-sm text-muted-foreground whitespace-nowrap">{tableName}</span>
+                            </>
+                        )}
                     </div>
                     <div className="h-4 w-[1px] bg-border mx-2"></div>
                     <Button
@@ -822,7 +828,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                             {row[col.name] === null || row[col.name] === '' ? (
                                                                                 <span className="text-muted-foreground italic">NULL</span>
                                                                             ) : (
-                                                                                String(row[col.name])
+                                                                                typeof row[col.name] === 'object' ? JSON.stringify(row[col.name]) : String(row[col.name])
                                                                             )}
                                                                         </div>
                                                                     )}
@@ -910,7 +916,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                                 <span className="text-muted-foreground italic">NULL</span>
                                                                             ) : (
                                                                                 <TextFormatterWrapper
-                                                                                    content={String(row[col.name])}
+                                                                                    content={typeof row[col.name] === 'object' && row[col.name] !== null ? JSON.stringify(row[col.name]) : String(row[col.name])}
                                                                                     onSave={tableName && primaryKeys.length > 0 ? async (newValue) => {
                                                                                         const whereClause = generateWhereClause(row);
                                                                                         const valueStr = newValue === null ? 'NULL' : `'${String(newValue).replace(/'/g, "''")}'`;
@@ -947,7 +953,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                                     title="Format value"
                                                                                 >
                                                                                     <div className="flex items-center gap-2 cursor-context-menu">
-                                                                                        <span className="flex-1 truncate">{String(row[col.name])}</span>
+                                                                                        <span className="flex-1 truncate">{typeof row[col.name] === 'object' && row[col.name] !== null ? JSON.stringify(row[col.name]) : String(row[col.name])}</span>
                                                                                     </div>
                                                                                 </TextFormatterWrapper>
                                                                             )}

@@ -70,6 +70,8 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
   const [valueFilter, setValueFilter] = useState<string>("");
   const [allValues, setAllValues] = useState<any[]>(savedResult?.allValues || []);
 
+  const [lastScannedFilter, setLastScannedFilter] = useState<string>(savedResult?.lastScannedFilter || "");
+
   const updateTab = useAppStore(state => state.updateTab);
 
   // Sync state to global store
@@ -83,12 +85,13 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
           selectedKey,
           selectedValue,
           allValues,
-          valueCursor
+          valueCursor,
+          lastScannedFilter
         }
       });
     }, 500);
     return () => clearTimeout(timer);
-  }, [keys, cursor, hasMore, selectedKey, selectedValue, allValues, valueCursor, tabId, updateTab]);
+  }, [keys, cursor, hasMore, selectedKey, selectedValue, allValues, valueCursor, lastScannedFilter, tabId, updateTab]);
 
   // Generate search pattern based on input
   const getSearchPattern = (searchTerm: string) => {
@@ -152,6 +155,10 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
         });
       } else {
         // Full scan or prefix search: use SCAN
+        // IMPORTANT: If we are not resetting, we continue from the existing cursor
+        // If the filter has changed, we should have reset via the useEffect or manual trigger, so `reset` would be true.
+        // If we are here with `reset=false`, it means we are continuing the scan for the *same* filter (or we should be).
+
         const currentCursor = reset ? "0" : cursor;
         const searchPattern = getSearchPattern(filter);
         command = `SCAN ${currentCursor} MATCH ${searchPattern} COUNT 100`;
@@ -172,6 +179,11 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
 
         setCursor(result.cursor);
         setHasMore(result.cursor !== "0");
+
+        // Update the last scanned filter only on successful scan
+        if (!useExactSearch) {
+          setLastScannedFilter(filter);
+        }
 
         // Log command to console
         addCommandToConsole({
@@ -416,12 +428,6 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
 
     // Case 3: Filter changed - Debounced fetch
     if (prev.filter !== curr.filter) {
-      // If it's a prefix search (ends with *), don't auto-fetch, wait for manual refresh
-      // "如果是key-*的搜素，点击刷新按钮的时候再scan"
-      if (curr.filter.endsWith('*')) {
-        return;
-      }
-
       const timer = setTimeout(() => {
         fetchKeys(true);
       }, 500);
@@ -639,7 +645,14 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
                   className="h-7 px-3 text-[11px] font-medium"
                   onClick={() => {
                     const isPrefixSearch = filter && filter.endsWith('*');
-                    if (isPrefixSearch && keys.length > 0 && cursor !== "0") {
+                    // We only continue scanning if the filter hasn't changed (comparing to lastScannedFilter)
+                    // If filter changed, we should start fresh (fetchKeys(true)).
+                    // If cursor is "0", that means we finished previous scan, so we start over or just refresh (also fetchKeys(true)).
+                    // The only case to fetchKeys(false) [continue scan] is:
+                    // 1. We are in a prefix search
+                    // 2. The current filter matches what we were scanning
+                    // 3. We haven't finished scanning (cursor != "0")
+                    if (isPrefixSearch && filter === lastScannedFilter && cursor !== "0") {
                       fetchKeys(false);
                     } else {
                       fetchKeys(true);
