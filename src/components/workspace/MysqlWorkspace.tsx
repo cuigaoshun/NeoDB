@@ -116,38 +116,8 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
 
     // Filter related state
     const [showFilter, setShowFilter] = useState(false);
-    const [whereClause, setWhereClause] = useState("");
-
-    const applyFilter = (clause: string) => {
-        setWhereClause(clause);
-        if (!dbName || !tableName) return;
-
-        let baseQuery = `SELECT * FROM \`${dbName}\`.\`${tableName}\``;
-        if (clause) {
-            baseQuery += ` WHERE ${clause}`;
-        }
-        setSql(autoAddLimit(baseQuery + ';', pageSize, 0));
-        setCurrentPage(0);
-    };
-    // 使用 applyFilter 避免 lint 警告
-    void applyFilter;
-
-    // When whereClause changes from FilterBuilder, we can auto-apply or require a click.
-    // Let's make it auto-apply to the SQL input (preview) but not run until User clicks Run.
-    useEffect(() => {
-        if (!showFilter || !dbName || !tableName) return;
-
-        // Only update if the current SQL looks like a simple select so we don't overwrite complex queries
-        // or just force it for this feature.
-        // Let's rewrite strictly based on filter for now as this is a "Visual Builder" mode.
-        let baseQuery = `SELECT * FROM \`${dbName}\`.\`${tableName}\``;
-        if (whereClause) {
-            baseQuery += ` WHERE ${whereClause}`;
-        }
-        // Add limit
-        const finalSql = autoAddLimit(baseQuery + ';', pageSize, 0);
-        setSql(finalSql);
-    }, [whereClause, showFilter, dbName, tableName, pageSize]);
+    const [, setWhereClause] = useState("");
+    const [filterColumns, setFilterColumns] = useState<ColumnInfo[]>([]);
 
 
     const initialSqlExecuted = useRef(false);
@@ -640,6 +610,10 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
             });
             setResult(data);
             setOriginalRows(data.rows);
+            // 更新筛选器的列信息
+            if (data.columns && data.columns.length > 0) {
+                setFilterColumns(data.columns);
+            }
 
             addCommandToConsole({
                 databaseType: 'mysql',
@@ -827,11 +801,21 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                 </div>
             </div>
 
-            {showFilter && result?.columns && (
+            {showFilter && filterColumns.length > 0 && (
                 <div className="border-b p-2 bg-muted/10">
                     <FilterBuilder
-                        columns={result.columns}
+                        columns={filterColumns}
                         onChange={setWhereClause}
+                        onExecute={(clause) => {
+                            if (!dbName || !tableName) return;
+                            let query = `SELECT * FROM \`${dbName}\`.\`${tableName}\``;
+                            if (clause) {
+                                query += ` WHERE ${clause}`;
+                            }
+                            const processedSql = autoAddLimit(query + ';', pageSize, 0);
+                            setCurrentPage(0);
+                            executeSql(processedSql);
+                        }}
                     />
                 </div>
             )}

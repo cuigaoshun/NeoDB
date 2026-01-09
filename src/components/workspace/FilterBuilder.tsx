@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Trash2, FolderPlus } from "lucide-react";
+import { Plus, Trash2, FolderPlus, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
@@ -31,6 +31,7 @@ export interface FilterNode {
 interface FilterBuilderProps {
     columns: ColumnInfo[];
     onChange: (whereClause: string) => void;
+    onExecute?: (whereClause: string) => void;
     initialState?: FilterNode;
 }
 
@@ -48,7 +49,7 @@ const OPERATORS = [
     { label: 'IS NOT NULL', value: 'IS NOT NULL' },
 ];
 
-export function FilterBuilder({ columns, onChange, initialState }: FilterBuilderProps) {
+export function FilterBuilder({ columns, onChange, onExecute, initialState }: FilterBuilderProps) {
     const { t } = useTranslation();
     const [root, setRoot] = useState<FilterNode>(initialState || {
         id: 'root',
@@ -188,12 +189,17 @@ export function FilterBuilder({ columns, onChange, initialState }: FilterBuilder
                             <Button size="sm" variant="ghost" onClick={() => addNode(node.id, 'group')} className="text-xs h-7">
                                 <FolderPlus className="h-3 w-3 mr-1" /> {t('common.addGroup', 'Add Group')}
                             </Button>
-                            <div className="flex-1"></div>
-                            {/* Global Logic Switch for Root? Currently Root is fixed to Logic of its children. 
-                                 Wait, root.logic defines how its children are joined. 
-                                 So we should show it.
-                             */}
-                            <span className="text-xs text-muted-foreground mr-2">{t('common.combineLogic', 'Combine top-level items with:')}</span>
+                            {onExecute && (
+                                <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => onExecute(generateWhereClause(root))} 
+                                    className="text-xs h-7 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950"
+                                >
+                                    <Play className="h-3 w-3 mr-1" /> {t('common.filter', 'Filter')}
+                                </Button>
+                            )}
+                            <span className="text-xs text-muted-foreground ml-4 mr-2">{t('common.combineLogic', 'Combine top-level items with:')}</span>
                             <Select value={root.logic} onValueChange={(val) => updateNode('root', { logic: val as LogicOperator })}>
                                 <SelectTrigger className="w-[80px] h-7 text-xs">
                                     <SelectValue />
@@ -265,7 +271,7 @@ export function FilterBuilder({ columns, onChange, initialState }: FilterBuilder
                         </div>
                     )}
 
-                    <div className="flex items-center gap-1 ml-auto">
+                    <div className="flex items-center gap-1">
                         {node.type === 'group' && (
                             <>
                                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => addNode(node.id, 'condition')} title="Add sub-condition">
