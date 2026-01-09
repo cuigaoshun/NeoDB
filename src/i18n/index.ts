@@ -226,6 +226,13 @@ const resources = {
         "searchResult": "Search Result",
         "enterKeyToSearch": "Enter a key to search for its value",
         "deleteConfirm": "Are you sure you want to delete key \"{{key}}\"?"
+      },
+      "settings": {
+        "title": "Settings",
+        "resetToDefault": "Reset to Default",
+        "redis": "Redis",
+        "redisScanCount": "Scan Count",
+        "redisScanCountDesc": "Number of keys to scan per request (10-10000)"
       }
     }
   },
@@ -452,6 +459,13 @@ const resources = {
         "searchResult": "查询结果",
         "enterKeyToSearch": "输入键名以查找其对应的值",
         "deleteConfirm": "确定要删除键 \"{{key}}\" 吗？"
+      },
+      "settings": {
+        "title": "设置",
+        "resetToDefault": "恢复默认",
+        "redis": "Redis",
+        "redisScanCount": "扫描数量",
+        "redisScanCountDesc": "每次扫描的键数量 (10-10000)"
       }
     }
   }

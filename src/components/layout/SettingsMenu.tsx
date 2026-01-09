@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { useTranslation } from "react-i18next";
-import { Moon, Sun, Laptop, Languages, Settings } from "lucide-react";
+import { Moon, Sun, Laptop, Languages, Settings, Sliders } from "lucide-react";
+import { useAppStore } from "@/store/useAppStore";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -17,6 +18,7 @@ import {
 export function SettingsMenu() {
     const { setTheme, theme } = useTheme();
     const { t, i18n } = useTranslation();
+    const setActiveView = useAppStore((state) => state.setActiveView);
 
     return (
         <DropdownMenu>
@@ -70,6 +72,12 @@ export function SettingsMenu() {
                         </DropdownMenuRadioGroup>
                     </DropdownMenuSubContent>
                 </DropdownMenuSub>
+
+                {/* Settings Page */}
+                <DropdownMenuItem onClick={() => setActiveView('settings')}>
+                    <Sliders className="mr-2 h-4 w-4" />
+                    <span>{t('settings.title')}</span>
+                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     );

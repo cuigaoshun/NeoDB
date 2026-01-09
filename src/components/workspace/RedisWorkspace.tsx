@@ -19,6 +19,7 @@ import { RedisListViewer } from "../redis/RedisListViewer";
 import { RedisStringViewer } from "../redis/RedisStringViewer";
 import { RedisAddKeyDialog } from "../redis/RedisAddKeyDialog";
 import { useAppStore } from "@/store/useAppStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import {
   Dialog,
   DialogContent,
@@ -73,6 +74,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
   const [lastScannedFilter, setLastScannedFilter] = useState<string>(savedResult?.lastScannedFilter || "");
 
   const updateTab = useAppStore(state => state.updateTab);
+  const redisScanCount = useSettingsStore(state => state.redisScanCount);
 
   // Sync state to global store
   useEffect(() => {
@@ -161,12 +163,12 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
 
         const currentCursor = reset ? "0" : cursor;
         const searchPattern = getSearchPattern(filter);
-        command = `SCAN ${currentCursor} MATCH ${searchPattern} COUNT 100`;
+        command = `SCAN ${currentCursor} MATCH ${searchPattern} COUNT ${redisScanCount}`;
 
         const result = await invoke<ScanResult>("get_redis_keys", {
           connectionId,
           cursor: currentCursor,
-          count: 100,
+          count: redisScanCount,
           pattern: searchPattern,
           db,
         });

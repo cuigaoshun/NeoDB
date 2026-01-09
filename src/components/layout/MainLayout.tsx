@@ -5,6 +5,7 @@ import { MemcachedWorkspace } from "../workspace/MemcachedWorkspace";
 import { SqliteWorkspace } from "../workspace/SqliteWorkspace";
 import { TableSchemaTab } from "../workspace/TableSchemaTab";
 import { ConnectionManager } from "../workspace/ConnectionManager";
+import { SettingsPage } from "../settings/SettingsPage";
 import { useAppStore } from "@/store/useAppStore";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ActivityBar, ConnectionSidebar } from "./ActivityBar";
@@ -28,7 +29,7 @@ export function MainLayout() {
     // Command console visibility state
     const [consoleVisible, setConsoleVisible] = useState(false);
 
-    const handleViewChange = (view: 'home' | 'connections') => {
+    const handleViewChange = (view: 'home' | 'connections' | 'settings') => {
         if (view === activeView && view === 'connections') {
             setSidebarCollapsed(!sidebarCollapsed);
         } else {
@@ -55,6 +56,10 @@ export function MainLayout() {
                     {activeView === 'home' ? (
                         <div className="flex-1">
                             <ConnectionManager />
+                        </div>
+                    ) : activeView === 'settings' ? (
+                        <div className="flex-1">
+                            <SettingsPage />
                         </div>
                     ) : (
                         <ResizablePanelGroup direction="horizontal">

@@ -385,7 +385,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                 className={cn(
                     "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors mb-1 text-sm",
                     isActive
-                        ? "bg-primary text-primary-foreground font-medium"
+                        ? "bg-primary/10 text-primary font-medium"
                         : "hover:bg-accent text-muted-foreground hover:text-foreground"
                 )}
             >

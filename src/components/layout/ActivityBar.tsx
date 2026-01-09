@@ -17,8 +17,8 @@ import { SettingsMenu } from "./SettingsMenu";
 import { ConnectionTreeItem } from "./ConnectionTree";
 
 interface ActivityBarProps {
-    activeView: 'home' | 'connections';
-    onViewChange: (view: 'home' | 'connections') => void;
+    activeView: 'home' | 'connections' | 'settings';
+    onViewChange: (view: 'home' | 'connections' | 'settings') => void;
     consoleVisible: boolean;
     onToggleConsole: () => void;
 }

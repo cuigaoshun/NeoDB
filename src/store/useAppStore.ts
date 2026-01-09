@@ -39,7 +39,7 @@ interface AppState {
   connections: Connection[];
   tabs: Tab[];
   activeTabId: string | null;
-  activeView: 'home' | 'connections';
+  activeView: 'home' | 'connections' | 'settings';
   expandedConnectionId: number | null;
 
   setConnections: (connections: Connection[]) => void;
@@ -52,7 +52,7 @@ interface AppState {
   closeTabsToLeft: (id: string) => void;
   closeAllTabs: () => void;
   setActiveTab: (id: string) => void;
-  setActiveView: (view: 'home' | 'connections') => void;
+  setActiveView: (view: 'home' | 'connections' | 'settings') => void;
   setExpandedConnectionId: (id: number | null) => void;
 
   addConnection: (conn: Connection) => void;
