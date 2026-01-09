@@ -118,6 +118,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     const [showFilter, setShowFilter] = useState(false);
     const [, setWhereClause] = useState("");
     const [filterColumns, setFilterColumns] = useState<ColumnInfo[]>([]);
+    const [isLoadingFilterColumns, setIsLoadingFilterColumns] = useState(false);
 
 
     const initialSqlExecuted = useRef(false);
@@ -722,11 +723,40 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                         <Button
                             variant={showFilter ? "secondary" : "ghost"}
                             size="sm"
-                            onClick={() => setShowFilter(!showFilter)}
+                            onClick={async () => {
+                                const newShowFilter = !showFilter;
+                                setShowFilter(newShowFilter);
+                                // 如果要显示筛选器但没有列信息，尝试获取
+                                if (newShowFilter && filterColumns.length === 0 && dbName && tableName) {
+                                    setIsLoadingFilterColumns(true);
+                                    try {
+                                        // 使用 SHOW COLUMNS 获取列信息
+                                        const schemaSql = `SHOW COLUMNS FROM \`${dbName}\`.\`${tableName}\``;
+                                        const res = await invoke<SqlResult>("execute_sql", {
+                                            connectionId,
+                                            sql: schemaSql,
+                                            dbName
+                                        });
+                                        if (res.rows && res.rows.length > 0) {
+                                            // SHOW COLUMNS 返回 Field, Type, Null, Key, Default, Extra
+                                            const cols: ColumnInfo[] = res.rows.map(row => ({
+                                                name: (row.Field || row.field || Object.values(row)[0]) as string,
+                                                type_name: (row.Type || row.type || Object.values(row)[1] || 'text') as string
+                                            }));
+                                            setFilterColumns(cols);
+                                        }
+                                    } catch (err) {
+                                        console.error("Failed to fetch columns for filter:", err);
+                                    } finally {
+                                        setIsLoadingFilterColumns(false);
+                                    }
+                                }
+                            }}
+                            disabled={isLoadingFilterColumns}
                             title={t('common.filter', 'Filter')}
                             className={cn("mr-1", showFilter && "bg-muted")}
                         >
-                            <Filter className="h-4 w-4 mr-1" />
+                            {isLoadingFilterColumns ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Filter className="h-4 w-4 mr-1" />}
                             {t('common.filter', 'Filter')}
                         </Button>
                     )}
@@ -800,7 +830,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                 </div>
             </div>
 
-            {showFilter && filterColumns.length > 0 && (
+            {showFilter && (filterColumns.length > 0 || isLoadingFilterColumns) && (
                 <div className="p-2 bg-muted/20">
                     <FilterBuilder
                         columns={filterColumns}
