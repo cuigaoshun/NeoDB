@@ -595,7 +595,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
   return (
     <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="border-b p-2 flex justify-between items-center bg-muted/5 shrink-0 h-12">
+      <div className="p-2 flex justify-between items-center bg-muted/30 shrink-0 h-12">
         <div className="flex items-center gap-4 px-2">
           <h2 className="font-semibold text-sm">{name}</h2>
           <Badge
@@ -620,9 +620,9 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
       <div className="flex-1 overflow-hidden">
         <ResizablePanelGroup direction="horizontal">
           {/* Left Sidebar */}
-          <ResizablePanel defaultSize={35} minSize={20} maxSize={50} className="flex flex-col border-r">
+          <ResizablePanel defaultSize={35} minSize={20} maxSize={50} className="flex flex-col">
             {/* Filter */}
-            <div className="p-2 border-b">
+            <div className="p-2">
               <div className="relative">
                 <Search
                   className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground"

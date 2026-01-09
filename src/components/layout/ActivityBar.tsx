@@ -27,7 +27,7 @@ export function ActivityBar({ activeView, onViewChange, consoleVisible, onToggle
     const { t } = useTranslation();
 
     return (
-        <div className="w-12 bg-slate-900 flex flex-col items-center py-4 border-r border-slate-800 text-slate-300 z-20">
+        <div className="w-12 bg-sidebar flex flex-col items-center py-4 text-sidebar-foreground z-20">
             <div className="flex flex-col gap-4 w-full items-center">
                 <TooltipProvider delayDuration={0}>
                     <Tooltip>
@@ -35,14 +35,14 @@ export function ActivityBar({ activeView, onViewChange, consoleVisible, onToggle
                             <button
                                 onClick={() => onViewChange('home')}
                                 className={cn(
-                                    "p-2 rounded-md transition-colors hover:bg-slate-800 hover:text-white",
-                                    activeView === 'home' ? "bg-blue-600 text-white" : ""
+                                    "p-2 rounded-md transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                                    activeView === 'home' ? "bg-primary text-primary-foreground" : ""
                                 )}
                             >
                                 <Home className="h-5 w-5" />
                             </button>
                         </TooltipTrigger>
-                        <TooltipContent side="right" className="bg-slate-900 border-slate-700 text-white">
+                        <TooltipContent side="right" className="bg-popover border-border text-popover-foreground">
                             <p>{t('menu.home')}</p>
                         </TooltipContent>
                     </Tooltip>
@@ -54,14 +54,14 @@ export function ActivityBar({ activeView, onViewChange, consoleVisible, onToggle
                             <button
                                 onClick={() => onViewChange('connections')}
                                 className={cn(
-                                    "p-2 rounded-md transition-colors hover:bg-slate-800 hover:text-white",
-                                    activeView === 'connections' ? "bg-blue-600 text-white" : ""
+                                    "p-2 rounded-md transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                                    activeView === 'connections' ? "bg-primary text-primary-foreground" : ""
                                 )}
                             >
                                 <Database className="h-5 w-5" />
                             </button>
                         </TooltipTrigger>
-                        <TooltipContent side="right" className="bg-slate-900 border-slate-700 text-white">
+                        <TooltipContent side="right" className="bg-popover border-border text-popover-foreground">
                             <p>{t('sidebar.connections')}</p>
                         </TooltipContent>
                     </Tooltip>
@@ -75,14 +75,14 @@ export function ActivityBar({ activeView, onViewChange, consoleVisible, onToggle
                             <button
                                 onClick={onToggleConsole}
                                 className={cn(
-                                    "p-2 rounded-md transition-colors hover:bg-slate-800 hover:text-white",
-                                    consoleVisible ? "bg-blue-600 text-white" : ""
+                                    "p-2 rounded-md transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                                    consoleVisible ? "bg-primary text-primary-foreground" : ""
                                 )}
                             >
                                 <Terminal className="h-5 w-5" />
                             </button>
                         </TooltipTrigger>
-                        <TooltipContent side="right" className="bg-slate-900 border-slate-700 text-white">
+                        <TooltipContent side="right" className="bg-popover border-border text-popover-foreground">
                             <p>{t('common.toggleConsole')}</p>
                         </TooltipContent>
                     </Tooltip>
@@ -224,8 +224,8 @@ export function ConnectionSidebar({ collapsed, onToggle }: { collapsed: boolean,
     }
 
     return (
-        <div className="w-full h-full bg-muted/10 border-r flex flex-col text-foreground">
-            <div className="p-4 flex flex-col gap-3 border-b">
+        <div className="w-full h-full bg-background flex flex-col text-foreground">
+            <div className="p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                     <span className="font-semibold text-sm uppercase tracking-wider">{t('sidebar.explorer')}</span>
                     <button onClick={onToggle} className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground">

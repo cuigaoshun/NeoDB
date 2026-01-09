@@ -593,9 +593,9 @@ export function SqliteWorkspace({ tabId, name, connectionId, initialSql, savedSq
     return (
         <div className="h-full flex flex-col bg-background">
             {/* Toolbar */}
-            <div className="border-b p-2 flex gap-2 items-center bg-muted/5 justify-between">
+            <div className="p-2 flex gap-2 items-center bg-muted/30 justify-between">
                 <div className="flex gap-2 items-center">
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-muted/20 rounded border border-muted shadow-sm">
+                    <div className="flex items-center gap-1.5 px-3 py-1 bg-muted/50 rounded">
                         <span className="text-sm font-semibold text-foreground whitespace-nowrap">{connectionName}</span>
                         {dbName && (
                             <>
@@ -679,7 +679,7 @@ export function SqliteWorkspace({ tabId, name, connectionId, initialSql, savedSq
                     <ResizablePanel defaultSize={showDDL ? 70 : 100} minSize={30}>
                         <div className="h-full flex flex-col">
                             {/* Query Area */}
-                            <div className="h-1/3 p-4 border-b bg-background">
+                            <div className="h-1/3 p-4 bg-background">
                                 <Textarea
                                     value={sql}
                                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setSql(e.target.value)}
@@ -689,7 +689,7 @@ export function SqliteWorkspace({ tabId, name, connectionId, initialSql, savedSq
                             </div>
 
                             {/* Result Area */}
-                            <div className="flex-1 overflow-auto bg-muted/5 p-4">
+                            <div className="flex-1 overflow-auto p-4">
                                 {error && (
                                     <div className="p-4 bg-red-50 text-red-600 border border-red-200 rounded-md text-sm font-mono whitespace-pre-wrap">
                                         Error: {error}

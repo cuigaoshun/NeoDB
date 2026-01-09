@@ -22,14 +22,14 @@ export function TabBar() {
   const closeAllTabs = useAppStore((state) => state.closeAllTabs);
 
   return (
-    <div className="flex items-center border-b bg-muted/5 w-full overflow-x-auto no-scrollbar">
+    <div className="flex items-center bg-muted/30 w-full overflow-x-auto no-scrollbar">
       {tabs.map((tab) => (
         <ContextMenu key={tab.id}>
           <ContextMenuTrigger>
             <div
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "group flex items-center gap-2 px-4 py-2.5 border-r min-w-[150px] max-w-[200px] text-sm cursor-pointer select-none transition-colors",
+                "group flex items-center gap-2 px-4 py-2.5 min-w-[150px] max-w-[200px] text-sm cursor-pointer select-none transition-colors",
                 tab.id === activeTabId
                   ? "bg-background border-b-transparent font-medium text-primary"
                   : "bg-muted/20 text-muted-foreground hover:bg-muted/40"
