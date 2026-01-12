@@ -2,9 +2,9 @@ import { useTranslation } from "react-i18next";
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
-import { Play, Loader2, FileCode, Hash, Type, Calendar, Binary, Trash2, Plus, Copy, Check, X, ChevronLeft, ChevronRight, Filter, Pencil } from "lucide-react";
+import { Play, Loader2, FileCode, Hash, Type, Calendar, Binary, Trash2, Plus, Copy, Check, X, ChevronLeft, ChevronRight, Filter, Pencil, Wand2 } from "lucide-react";
 import { FilterBuilder } from "@/components/workspace/FilterBuilder";
-import { TextFormatterWrapper } from "@/components/common/TextFormatterWrapper";
+import { TextFormatterDialog } from "@/components/common/TextFormatterDialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,6 +27,7 @@ import {
     ContextMenuContent,
     ContextMenuItem,
     ContextMenuTrigger,
+    ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { cn, transparentTheme } from "@/lib/utils";
@@ -72,6 +73,13 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     const [editingCell, setEditingCell] = useState<{ rowIdx: number, colName: string, isNewRow: boolean } | null>(null);
     const [editValue, setEditValue] = useState<string>('');
     const [, setOriginalRows] = useState<Record<string, any>[]>([]);
+
+    // 格式化查看状态
+    const [formatterOpen, setFormatterOpen] = useState(false);
+    const [formatterContent, setFormatterContent] = useState('');
+    const [formatterReadOnly, setFormatterReadOnly] = useState(false);
+    const [formatterOnSave, setFormatterOnSave] = useState<((val: string) => void) | undefined>(undefined);
+    const [formatterTitle, setFormatterTitle] = useState('');
 
 
     // 分页状态
@@ -316,52 +324,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
         setEditValue('');
     };
 
-    // 删除选中的行
-    const handleRowDelete = async () => {
-        if (!result || !dbName || !tableName || selectedRowIndices.length === 0) return;
 
-        if (!confirm(t('common.confirmDeleteRows', '确定要删除选中的 {{count}} 行吗？', { count: selectedRowIndices.length }))) return;
-
-        try {
-            // 批量删除
-            for (const rowIdx of selectedRowIndices) {
-                const row = result.rows[rowIdx];
-                const whereClause = generateWhereClause(row);
-                const deleteSql = `DELETE FROM \`${dbName}\`.\`${tableName}\` WHERE ${whereClause}`;
-
-                const startTime = Date.now();
-                await invoke("execute_sql", {
-                    connectionId,
-                    sql: deleteSql,
-                    dbName
-                });
-
-                addCommandToConsole({
-                    databaseType: 'mysql',
-                    command: deleteSql,
-                    duration: Date.now() - startTime,
-                    success: true
-                });
-            }
-
-            // 更新本地数据
-            const updatedRows = result.rows.filter((_, idx) => !selectedRowIndices.includes(idx));
-            setResult({ ...result, rows: updatedRows });
-            setOriginalRows(updatedRows);
-            setSelectedRowIndices([]);
-        } catch (err: any) {
-            console.error("Delete failed:", err);
-            setError(typeof err === 'string' ? err : JSON.stringify(err));
-
-            addCommandToConsole({
-                databaseType: 'mysql',
-                command: `DELETE FROM \`${dbName}\`.\`${tableName}\` WHERE ...`,
-                duration: 0,
-                success: false,
-                error: typeof err === 'string' ? err : JSON.stringify(err)
-            });
-        }
-    };
 
     // 新增行状态
     const [newRows, setNewRows] = useState<Record<string, any>[]>([]);
@@ -435,6 +398,9 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
         }
     };
 
+
+
+
     // 复制选中的行
     const handleCopyRow = () => {
         if (!result || selectedRowIndices.length === 0) return;
@@ -456,59 +422,46 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
         setNewRows([...newRows, ...copiedRows]);
     };
 
-    // 提交新行
-    const handleNewRowSubmit = async (rowIdx: number) => {
-        if (!dbName || !tableName || !result) return;
+    // 删除选中的行
+    const handleRowDelete = async () => {
+        if (!result || !dbName || !tableName || selectedRowIndices.length === 0) return;
 
-        const row = newRows[rowIdx];
-
-        // 过滤掉值为 null 的字段
-        const fields: string[] = [];
-        const values: string[] = [];
-
-        Object.entries(row).forEach(([key, value]) => {
-            if (value !== null && value !== '') {
-                fields.push(`\`${key}\``);
-                const escapedValue = String(value).replace(/'/g, "''");
-                values.push(`'${escapedValue}'`);
-            }
-        });
-
-        if (fields.length === 0) {
-            alert(t('common.atLeastOneField', '请至少填写一个字段'));
-            return;
-        }
-
-        const insertSql = `INSERT INTO \`${dbName}\`.\`${tableName}\` (${fields.join(', ')}) VALUES (${values.join(', ')})`;
+        if (!confirm(t('common.confirmDeleteRows', '确定要删除选中的 {{count}} 行吗？', { count: selectedRowIndices.length }))) return;
 
         try {
-            const startTime = Date.now();
-            await invoke("execute_sql", {
-                connectionId,
-                sql: insertSql,
-                dbName
-            });
+            // 批量删除
+            for (const rowIdx of selectedRowIndices) {
+                const row = result.rows[rowIdx];
+                const whereClause = generateWhereClause(row);
+                const deleteSql = `DELETE FROM \`${dbName}\`.\`${tableName}\` WHERE ${whereClause}`;
 
-            addCommandToConsole({
-                databaseType: 'mysql',
-                command: insertSql,
-                duration: Date.now() - startTime,
-                success: true
-            });
+                const startTime = Date.now();
+                await invoke("execute_sql", {
+                    connectionId,
+                    sql: deleteSql,
+                    dbName
+                });
 
-            // 移除新增行并刷新数据
-            const updatedNewRows = newRows.filter((_, idx) => idx !== rowIdx);
-            setNewRows(updatedNewRows);
+                addCommandToConsole({
+                    databaseType: 'mysql',
+                    command: deleteSql,
+                    duration: Date.now() - startTime,
+                    success: true
+                });
+            }
 
-            // 重新执行查询以获取最新数据
-            handleExecute();
+            // 更新本地数据
+            const updatedRows = result.rows.filter((_, idx) => !selectedRowIndices.includes(idx));
+            setResult({ ...result, rows: updatedRows });
+            setOriginalRows(updatedRows);
+            setSelectedRowIndices([]);
         } catch (err: any) {
-            console.error("Insert failed:", err);
+            console.error("Delete failed:", err);
             setError(typeof err === 'string' ? err : JSON.stringify(err));
 
             addCommandToConsole({
                 databaseType: 'mysql',
-                command: insertSql,
+                command: `DELETE FROM \`${dbName}\`.\`${tableName}\` WHERE ...`,
                 duration: 0,
                 success: false,
                 error: typeof err === 'string' ? err : JSON.stringify(err)
@@ -516,10 +469,142 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
         }
     };
 
-    // 删除新增行
-    const handleNewRowDelete = (rowIdx: number) => {
-        const updatedNewRows = newRows.filter((_, idx) => idx !== rowIdx);
-        setNewRows(updatedNewRows);
+    // 复制单行
+    const handleCopySingleRow = (rowIdx: number) => {
+        if (!result) return;
+
+        const rowToCopy = result.rows[rowIdx];
+        const copiedRow = { ...rowToCopy };
+
+        // 清空主键字段（让数据库自动生成）
+        primaryKeys.forEach(key => {
+            copiedRow[key] = null;
+        });
+
+        setNewRows([...newRows, copiedRow]);
+    };
+
+    // 删除单行
+    const handleDeleteSingleRow = async (rowIdx: number) => {
+        if (!result || !dbName || !tableName) return;
+
+        if (!confirm(t('common.confirmDeleteRow', '确定要删除这一行吗？'))) return;
+
+        try {
+            const row = result.rows[rowIdx];
+            const whereClause = generateWhereClause(row);
+            const deleteSql = `DELETE FROM \`${dbName}\`.\`${tableName}\` WHERE ${whereClause}`;
+
+            const startTime = Date.now();
+            await invoke("execute_sql", {
+                connectionId,
+                sql: deleteSql,
+                dbName
+            });
+
+            addCommandToConsole({
+                databaseType: 'mysql',
+                command: deleteSql,
+                duration: Date.now() - startTime,
+                success: true
+            });
+
+            // 更新本地数据
+            const updatedRows = result.rows.filter((_, idx) => idx !== rowIdx);
+            setResult({ ...result, rows: updatedRows });
+            setOriginalRows(updatedRows);
+            // 如果删除的行在选中列表中，也移除
+            setSelectedRowIndices(selectedRowIndices.filter(idx => idx !== rowIdx).map(idx => idx > rowIdx ? idx - 1 : idx));
+        } catch (err: any) {
+            console.error("Delete failed:", err);
+            setError(typeof err === 'string' ? err : JSON.stringify(err));
+
+            addCommandToConsole({
+                databaseType: 'mysql',
+                command: `DELETE FROM \`${dbName}\`.\`${tableName}\` WHERE ...`,
+                duration: 0,
+                success: false,
+                error: typeof err === 'string' ? err : JSON.stringify(err)
+            });
+        }
+    };
+
+    // 提交所有新增行
+    const handleSubmitChanges = async () => {
+        if (!dbName || !tableName || !result || newRows.length === 0) return;
+
+        const failedRows = [];
+        let successCount = 0;
+
+        setIsLoading(true);
+
+        // 倒序处理
+        for (let i = 0; i < newRows.length; i++) {
+            const row = newRows[i];
+            const fields: string[] = [];
+            const values: string[] = [];
+
+            Object.entries(row).forEach(([key, value]) => {
+                if (value !== null && value !== '') {
+                    fields.push(`\`${key}\``);
+                    const escapedValue = String(value).replace(/'/g, "''");
+                    values.push(`'${escapedValue}'`);
+                }
+            });
+
+            if (fields.length === 0) {
+                failedRows.push(row);
+                continue;
+            }
+
+            const insertSql = `INSERT INTO \`${dbName}\`.\`${tableName}\` (${fields.join(', ')}) VALUES (${values.join(', ')})`;
+
+            try {
+                const startTime = Date.now();
+                await invoke("execute_sql", {
+                    connectionId,
+                    sql: insertSql,
+                    dbName
+                });
+
+                addCommandToConsole({
+                    databaseType: 'mysql',
+                    command: insertSql,
+                    duration: Date.now() - startTime,
+                    success: true
+                });
+                successCount++;
+            } catch (err: any) {
+                console.error("Insert failed:", err);
+                failedRows.push(row);
+
+                addCommandToConsole({
+                    databaseType: 'mysql',
+                    command: insertSql,
+                    duration: 0,
+                    success: false,
+                    error: typeof err === 'string' ? err : JSON.stringify(err)
+                });
+            }
+        }
+
+        setNewRows(failedRows);
+        setIsLoading(false);
+
+        if (successCount > 0) {
+            handleExecute(); // 刷新数据
+        }
+
+        if (failedRows.length > 0) {
+            setError(t('common.someRowsFailed', '有 {{count}} 行提交失败，请检查数据。', { count: failedRows.length }));
+        }
+    };
+
+    // 取消所有修改（清空新增行）
+    const handleCancelChanges = () => {
+        if (confirm(t('common.confirmCancelChanges', '确定要放弃所有新增行吗？'))) {
+            setNewRows([]);
+        }
     };
 
     // 处理分页变化
@@ -845,10 +930,33 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                 <Trash2 className="h-3 w-3" />
                                 {t('common.delete', '删除')} {selectedRowIndices.length > 0 && `(${selectedRowIndices.length})`}
                             </Button>
+
+                            {newRows.length > 0 && (
+                                <>
+                                    <div className="h-4 w-[1px] bg-border mx-2"></div>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSubmitChanges}
+                                        disabled={isLoading}
+                                        className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                                    >
+                                        {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                                        {t('common.submitChanges', '提交修改')}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={handleCancelChanges}
+                                        disabled={isLoading}
+                                        className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    >
+                                        <X className="h-3 w-3" />
+                                        {t('common.cancel', '取消')}
+                                    </Button>
+                                </>
+                            )}
                         </>
                     )}
-
-                    {/* 数据操作按钮 */}
                 </div>
 
                 {/* Right Side Toolbar Actions */}
@@ -1021,30 +1129,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                     )}
                                                                 </TableCell>
                                                             ))}
-                                                            {tableName && (
-                                                                <TableCell>
-                                                                    <div className="flex gap-1">
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="ghost"
-                                                                            className="h-7 px-2 text-green-600 hover:text-green-700"
-                                                                            onClick={() => handleNewRowSubmit(rowIdx)}
-                                                                            title={t('common.save', '提交')}
-                                                                        >
-                                                                            <Check className="h-3 w-3" />
-                                                                        </Button>
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="ghost"
-                                                                            className="h-7 px-2 text-red-600 hover:text-red-700"
-                                                                            onClick={() => handleNewRowDelete(rowIdx)}
-                                                                            title={t('common.cancel', '取消')}
-                                                                        >
-                                                                            <X className="h-3 w-3" />
-                                                                        </Button>
-                                                                    </div>
-                                                                </TableCell>
-                                                            )}
+
                                                         </TableRow>
                                                     ))}
 
@@ -1052,31 +1137,19 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                     {filteredRows.map((row, displayIdx) => {
                                                         // 找到原始行索引用于编辑操作
                                                         const originalRowIdx = result.rows.indexOf(row);
+                                                        const isRowSelected = selectedRowIndices.includes(originalRowIdx);
                                                         return (
                                                             <TableRow
                                                                 key={displayIdx}
                                                                 className={cn(
-                                                                    "hover:bg-muted/50 cursor-pointer",
-                                                                    selectedRowIndices.includes(originalRowIdx) && "bg-blue-100 dark:bg-blue-900/40"
+                                                                    "hover:bg-muted/50",
+                                                                    isRowSelected && "bg-blue-100 dark:bg-blue-900/40"
                                                                 )}
-                                                                onClick={(e) => {
-                                                                    // 支持 Ctrl/Cmd 多选
-                                                                    if (e.ctrlKey || e.metaKey) {
-                                                                        if (selectedRowIndices.includes(originalRowIdx)) {
-                                                                            setSelectedRowIndices(selectedRowIndices.filter(idx => idx !== originalRowIdx));
-                                                                        } else {
-                                                                            setSelectedRowIndices([...selectedRowIndices, originalRowIdx]);
-                                                                        }
-                                                                    } else {
-                                                                        // 单击选中单行
-                                                                        setSelectedRowIndices([originalRowIdx]);
-                                                                    }
-                                                                }}
                                                             >
                                                                 {result.columns.map((col, colIdx) => (
-                                                                    <TableCell key={colIdx} className="whitespace-nowrap w-[200px] min-w-[200px]">
+                                                                    <TableCell key={colIdx} className="p-0 whitespace-nowrap w-[200px] min-w-[200px]">
                                                                         {editingCell?.rowIdx === originalRowIdx && editingCell?.colName === col.name && !editingCell?.isNewRow ? (
-                                                                            <div className="relative w-[168px]">
+                                                                            <div className="relative w-[168px] px-2 py-1">
                                                                                 <Input
                                                                                     value={editValue}
                                                                                     onChange={(e) => setEditValue(e.target.value)}
@@ -1097,56 +1170,104 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                                 </div>
                                                                             </div>
                                                                         ) : (
-                                                                            <div
-                                                                                className="truncate"
-                                                                            >
-                                                                                {row[col.name] === null ? (
-                                                                                    <span className="text-muted-foreground italic">NULL</span>
-                                                                                ) : (
-                                                                                    <TextFormatterWrapper
-                                                                                        content={typeof row[col.name] === 'object' && row[col.name] !== null ? JSON.stringify(row[col.name]) : String(row[col.name])}
-                                                                                        onSave={isEditable ? async (newValue) => {
-                                                                                            const whereClause = generateWhereClause(row);
-                                                                                            const valueStr = newValue === null ? 'NULL' : `'${String(newValue).replace(/'/g, "''")}'`;
-                                                                                            const updateSql = `UPDATE \`${dbName}\`.\`${tableName}\` SET \`${col.name}\` = ${valueStr} WHERE ${whereClause}`;
-                                                                                            const startTime = Date.now();
-                                                                                            try {
-                                                                                                await invoke("execute_sql", {
-                                                                                                    connectionId,
-                                                                                                    sql: updateSql
-                                                                                                });
-                                                                                                addCommandToConsole({
-                                                                                                    databaseType: 'mysql',
-                                                                                                    command: updateSql,
-                                                                                                    duration: Date.now() - startTime,
-                                                                                                    success: true
-                                                                                                });
-                                                                                                // Update local data
-                                                                                                const updatedRows = [...result.rows];
-                                                                                                updatedRows[originalRowIdx] = { ...updatedRows[originalRowIdx], [col.name]: newValue };
-                                                                                                setResult({ ...result, rows: updatedRows });
-                                                                                                setOriginalRows(updatedRows);
-                                                                                            } catch (err: any) {
-                                                                                                console.error("Update failed:", err);
-                                                                                                addCommandToConsole({
-                                                                                                    databaseType: 'mysql',
-                                                                                                    command: updateSql,
-                                                                                                    duration: 0,
-                                                                                                    success: false,
-                                                                                                    error: typeof err === 'string' ? err : JSON.stringify(err)
-                                                                                                });
-                                                                                            }
-                                                                                        } : undefined}
-                                                                                        readonly={!isEditable}
-                                                                                        title="Format value"
-                                                                                        onEdit={isEditable ? () => handleCellEdit(originalRowIdx, col.name, row[col.name], false) : undefined}
-                                                                                    >
-                                                                                        <div className="flex items-center gap-2 cursor-context-menu">
+                                                                            <ContextMenu>
+                                                                                <ContextMenuTrigger asChild>
+                                                                                    <div className="px-2 py-2 cursor-context-menu min-h-[36px] flex items-center">
+                                                                                        {row[col.name] === null ? (
+                                                                                            <span className="text-muted-foreground italic truncate">NULL</span>
+                                                                                        ) : (
                                                                                             <span className="flex-1 truncate">{typeof row[col.name] === 'object' && row[col.name] !== null ? JSON.stringify(row[col.name]) : String(row[col.name])}</span>
-                                                                                        </div>
-                                                                                    </TextFormatterWrapper>
-                                                                                )}
-                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </ContextMenuTrigger>
+                                                                                <ContextMenuContent>
+                                                                                    <ContextMenuItem
+                                                                                        onClick={() => {
+                                                                                            if (isRowSelected) {
+                                                                                                setSelectedRowIndices(selectedRowIndices.filter(idx => idx !== originalRowIdx));
+                                                                                            } else {
+                                                                                                setSelectedRowIndices([...selectedRowIndices, originalRowIdx]);
+                                                                                            }
+                                                                                        }}
+                                                                                    >
+                                                                                        <Check className={cn("h-3 w-3 mr-2", !isRowSelected && "opacity-0")} />
+                                                                                        {isRowSelected ? t('common.deselect', '取消选中') : t('common.select', '选中')}
+                                                                                    </ContextMenuItem>
+
+                                                                                    <ContextMenuSeparator />
+
+                                                                                    <ContextMenuItem
+                                                                                        onClick={() => {
+                                                                                            const content = typeof row[col.name] === 'object' && row[col.name] !== null ? JSON.stringify(row[col.name]) : String(row[col.name]);
+                                                                                            setFormatterContent(content);
+                                                                                            setFormatterTitle(`Format value: ${col.name}`);
+                                                                                            setFormatterReadOnly(!isEditable);
+
+                                                                                            if (isEditable) {
+                                                                                                setFormatterOnSave(() => async (newValue: string) => {
+                                                                                                    const whereClause = generateWhereClause(row);
+                                                                                                    const valueStr = newValue === null ? 'NULL' : `'${String(newValue).replace(/'/g, "''")}'`;
+                                                                                                    const updateSql = `UPDATE \`${dbName}\`.\`${tableName}\` SET \`${col.name}\` = ${valueStr} WHERE ${whereClause}`;
+                                                                                                    const startTime = Date.now();
+                                                                                                    try {
+                                                                                                        await invoke("execute_sql", {
+                                                                                                            connectionId,
+                                                                                                            sql: updateSql
+                                                                                                        });
+                                                                                                        addCommandToConsole({
+                                                                                                            databaseType: 'mysql',
+                                                                                                            command: updateSql,
+                                                                                                            duration: Date.now() - startTime,
+                                                                                                            success: true
+                                                                                                        });
+                                                                                                        // Update local data
+                                                                                                        const updatedRows = [...result.rows];
+                                                                                                        updatedRows[originalRowIdx] = { ...updatedRows[originalRowIdx], [col.name]: newValue };
+                                                                                                        setResult({ ...result, rows: updatedRows });
+                                                                                                        setOriginalRows(updatedRows);
+                                                                                                    } catch (err: any) {
+                                                                                                        console.error("Update failed:", err);
+                                                                                                        addCommandToConsole({
+                                                                                                            databaseType: 'mysql',
+                                                                                                            command: updateSql,
+                                                                                                            duration: 0,
+                                                                                                            success: false,
+                                                                                                            error: typeof err === 'string' ? err : JSON.stringify(err)
+                                                                                                        });
+                                                                                                    }
+                                                                                                });
+                                                                                            } else {
+                                                                                                setFormatterOnSave(undefined);
+                                                                                            }
+
+                                                                                            setFormatterOpen(true);
+                                                                                        }}
+                                                                                    >
+                                                                                        <Wand2 className="h-3 w-3 mr-2" />
+                                                                                        {t('common.viewFormatted', '查看格式化/完整内容')}
+                                                                                    </ContextMenuItem>
+
+                                                                                    {isEditable && (
+                                                                                        <>
+                                                                                            <ContextMenuItem onClick={() => handleCellEdit(originalRowIdx, col.name, row[col.name], false)}>
+                                                                                                <Pencil className="h-3 w-3 mr-2" />
+                                                                                                {t('common.edit', '编辑')}
+                                                                                            </ContextMenuItem>
+                                                                                            <ContextMenuItem onClick={() => handleCopySingleRow(originalRowIdx)}>
+                                                                                                <Copy className="h-3 w-3 mr-2" />
+                                                                                                {t('common.duplicateRow', '复制行')}
+                                                                                            </ContextMenuItem>
+                                                                                            <ContextMenuItem
+                                                                                                onClick={() => handleDeleteSingleRow(originalRowIdx)}
+                                                                                                className="text-red-600 focus:text-red-600"
+                                                                                            >
+                                                                                                <Trash2 className="h-3 w-3 mr-2" />
+                                                                                                {t('common.deleteRow', '删除行')}
+                                                                                            </ContextMenuItem>
+                                                                                        </>
+                                                                                    )}
+                                                                                </ContextMenuContent>
+                                                                            </ContextMenu>
                                                                         )}
                                                                     </TableCell>
                                                                 ))}
@@ -1268,6 +1389,15 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                     )}
                 </ResizablePanelGroup>
             </div>
-        </div >
+
+            <TextFormatterDialog
+                open={formatterOpen}
+                onOpenChange={setFormatterOpen}
+                content={formatterContent}
+                title={formatterTitle}
+                readonly={formatterReadOnly}
+                onSave={formatterOnSave}
+            />
+        </div>
     );
 }
