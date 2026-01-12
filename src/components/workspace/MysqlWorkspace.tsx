@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
-import { Play, Loader2, FileCode, Hash, Type, Calendar, Binary, Trash2, Plus, Copy, Check, X, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { Play, Loader2, FileCode, Hash, Type, Calendar, Binary, Trash2, Plus, Copy, Check, X, ChevronLeft, ChevronRight, Filter, Pencil } from "lucide-react";
 import { FilterBuilder } from "@/components/workspace/FilterBuilder";
 import { TextFormatterWrapper } from "@/components/common/TextFormatterWrapper";
 import { Textarea } from "@/components/ui/textarea";
@@ -119,6 +119,9 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     const [, setWhereClause] = useState("");
     const [filterColumns, setFilterColumns] = useState<ColumnInfo[]>([]);
     const [isLoadingFilterColumns, setIsLoadingFilterColumns] = useState(false);
+
+    // Inline filter state (local filtering on fetched data)
+    const [inlineFilters, setInlineFilters] = useState<Record<string, string>>({});
 
 
     const initialSqlExecuted = useRef(false);
@@ -692,6 +695,28 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
         return <Type className="h-3 w-3 text-gray-500" />;
     };
 
+    // Compute filtered rows based on inline filters
+    const getFilteredRows = () => {
+        if (!result) return [];
+        const activeFilters = Object.entries(inlineFilters).filter(([_, value]) => value.trim() !== '');
+        if (activeFilters.length === 0) return result.rows;
+
+        return result.rows.filter(row => {
+            return activeFilters.every(([colName, filterValue]) => {
+                const cellValue = row[colName];
+                if (cellValue === null || cellValue === undefined) {
+                    return filterValue.toLowerCase() === 'null';
+                }
+                const strValue = typeof cellValue === 'object' ? JSON.stringify(cellValue) : String(cellValue);
+                return strValue.toLowerCase().includes(filterValue.toLowerCase());
+            });
+        });
+    };
+
+    const filteredRows = getFilteredRows();
+    const hasActiveInlineFilters = Object.values(inlineFilters).some(v => v.trim() !== '');
+
+
 
 
 
@@ -873,10 +898,6 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
 
                                 {result && (
                                     <div className="h-full flex flex-col">
-                                        <div className="mb-2 text-xs text-muted-foreground flex justify-between">
-                                            <span>{result.rows.length} {t('common.rowsReturned', 'rows returned')}</span>
-                                            {result.affected_rows > 0 && <span>{t('common.affectedRows', 'Affected Rows')}: {result.affected_rows}</span>}
-                                        </div>
 
                                         <div className="border rounded-md bg-background overflow-auto flex-1">
                                             <Table>
@@ -890,6 +911,15 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                         {getColumnTypeIcon(col.type_name)}
                                                                         <span className="lowercase">{col.type_name}</span>
                                                                     </div>
+                                                                    <Input
+                                                                        value={inlineFilters[col.name] || ''}
+                                                                        onChange={(e) => setInlineFilters(prev => ({
+                                                                            ...prev,
+                                                                            [col.name]: e.target.value
+                                                                        }))}
+                                                                        placeholder={t('common.localFilter', '筛选...')}
+                                                                        className="h-6 text-xs mt-1 w-full min-w-[80px]"
+                                                                    />
                                                                 </div>
                                                             </TableHead>
                                                         ))}
@@ -962,111 +992,112 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                     ))}
 
                                                     {/* 现有行 */}
-                                                    {result.rows.map((row, rowIdx) => (
-                                                        <TableRow
-                                                            key={rowIdx}
-                                                            className={cn(
-                                                                "hover:bg-muted/50 cursor-pointer",
-                                                                selectedRowIndices.includes(rowIdx) && "bg-blue-100 dark:bg-blue-900/40"
-                                                            )}
-                                                            onClick={(e) => {
-                                                                // 支持 Ctrl/Cmd 多选
-                                                                if (e.ctrlKey || e.metaKey) {
-                                                                    if (selectedRowIndices.includes(rowIdx)) {
-                                                                        setSelectedRowIndices(selectedRowIndices.filter(idx => idx !== rowIdx));
+                                                    {filteredRows.map((row, displayIdx) => {
+                                                        // 找到原始行索引用于编辑操作
+                                                        const originalRowIdx = result.rows.indexOf(row);
+                                                        return (
+                                                            <TableRow
+                                                                key={displayIdx}
+                                                                className={cn(
+                                                                    "hover:bg-muted/50 cursor-pointer",
+                                                                    selectedRowIndices.includes(originalRowIdx) && "bg-blue-100 dark:bg-blue-900/40"
+                                                                )}
+                                                                onClick={(e) => {
+                                                                    // 支持 Ctrl/Cmd 多选
+                                                                    if (e.ctrlKey || e.metaKey) {
+                                                                        if (selectedRowIndices.includes(originalRowIdx)) {
+                                                                            setSelectedRowIndices(selectedRowIndices.filter(idx => idx !== originalRowIdx));
+                                                                        } else {
+                                                                            setSelectedRowIndices([...selectedRowIndices, originalRowIdx]);
+                                                                        }
                                                                     } else {
-                                                                        setSelectedRowIndices([...selectedRowIndices, rowIdx]);
+                                                                        // 单击选中单行
+                                                                        setSelectedRowIndices([originalRowIdx]);
                                                                     }
-                                                                } else {
-                                                                    // 单击选中单行
-                                                                    setSelectedRowIndices([rowIdx]);
-                                                                }
-                                                            }}
-                                                        >
-                                                            {result.columns.map((col, colIdx) => (
-                                                                <TableCell key={colIdx} className="whitespace-nowrap max-w-[300px]">
-                                                                    {editingCell?.rowIdx === rowIdx && editingCell?.colName === col.name && !editingCell?.isNewRow ? (
-                                                                        <div className="flex gap-1 items-center">
-                                                                            <Input
-                                                                                value={editValue}
-                                                                                onChange={(e) => setEditValue(e.target.value)}
-                                                                                className="h-7 text-xs"
-                                                                                autoFocus
-                                                                                onKeyDown={(e) => {
-                                                                                    if (e.key === 'Enter') handleCellSubmit();
-                                                                                    if (e.key === 'Escape') handleCellCancel();
-                                                                                }}
-                                                                            />
-                                                                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleCellSubmit}>
-                                                                                <Check className="h-3 w-3 text-green-600" />
-                                                                            </Button>
-                                                                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleCellCancel}>
-                                                                                <X className="h-3 w-3 text-red-600" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div
-                                                                            className="cursor-pointer hover:bg-muted/50 px-2 py-1 rounded truncate"
-                                                                            onDoubleClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                isEditable && handleCellEdit(rowIdx, col.name, row[col.name], false);
-                                                                            }}
-                                                                        >
-                                                                            {row[col.name] === null ? (
-                                                                                <span className="text-muted-foreground italic">NULL</span>
-                                                                            ) : (
-                                                                                <TextFormatterWrapper
-                                                                                    content={typeof row[col.name] === 'object' && row[col.name] !== null ? JSON.stringify(row[col.name]) : String(row[col.name])}
-                                                                                    onSave={isEditable ? async (newValue) => {
-                                                                                        const whereClause = generateWhereClause(row);
-                                                                                        const valueStr = newValue === null ? 'NULL' : `'${String(newValue).replace(/'/g, "''")}'`;
-                                                                                        const updateSql = `UPDATE \`${dbName}\`.\`${tableName}\` SET \`${col.name}\` = ${valueStr} WHERE ${whereClause}`;
-                                                                                        const startTime = Date.now();
-                                                                                        try {
-                                                                                            await invoke("execute_sql", {
-                                                                                                connectionId,
-                                                                                                sql: updateSql
-                                                                                            });
-                                                                                            addCommandToConsole({
-                                                                                                databaseType: 'mysql',
-                                                                                                command: updateSql,
-                                                                                                duration: Date.now() - startTime,
-                                                                                                success: true
-                                                                                            });
-                                                                                            // Update local data
-                                                                                            const updatedRows = [...result.rows];
-                                                                                            updatedRows[rowIdx] = { ...updatedRows[rowIdx], [col.name]: newValue };
-                                                                                            setResult({ ...result, rows: updatedRows });
-                                                                                            setOriginalRows(updatedRows);
-                                                                                        } catch (err: any) {
-                                                                                            console.error("Update failed:", err);
-                                                                                            addCommandToConsole({
-                                                                                                databaseType: 'mysql',
-                                                                                                command: updateSql,
-                                                                                                duration: 0,
-                                                                                                success: false,
-                                                                                                error: typeof err === 'string' ? err : JSON.stringify(err)
-                                                                                            });
-                                                                                        }
-                                                                                    } : undefined}
-                                                                                    readonly={!isEditable}
-                                                                                    title="Format value"
-                                                                                >
-                                                                                    <div className="flex items-center gap-2 cursor-context-menu">
-                                                                                        <span className="flex-1 truncate">{typeof row[col.name] === 'object' && row[col.name] !== null ? JSON.stringify(row[col.name]) : String(row[col.name])}</span>
-                                                                                    </div>
-                                                                                </TextFormatterWrapper>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-                                                                </TableCell>
-                                                            ))}
-                                                        </TableRow>
-                                                    ))}
-                                                    {result.rows.length === 0 && newRows.length === 0 && (
+                                                                }}
+                                                            >
+                                                                {result.columns.map((col, colIdx) => (
+                                                                    <TableCell key={colIdx} className="whitespace-nowrap max-w-[300px]">
+                                                                        {editingCell?.rowIdx === originalRowIdx && editingCell?.colName === col.name && !editingCell?.isNewRow ? (
+                                                                            <div className="flex gap-1 items-center">
+                                                                                <Input
+                                                                                    value={editValue}
+                                                                                    onChange={(e) => setEditValue(e.target.value)}
+                                                                                    className="h-7 text-xs"
+                                                                                    autoFocus
+                                                                                    onKeyDown={(e) => {
+                                                                                        if (e.key === 'Enter') handleCellSubmit();
+                                                                                        if (e.key === 'Escape') handleCellCancel();
+                                                                                    }}
+                                                                                />
+                                                                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleCellSubmit}>
+                                                                                    <Check className="h-3 w-3 text-green-600" />
+                                                                                </Button>
+                                                                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleCellCancel}>
+                                                                                    <X className="h-3 w-3 text-red-600" />
+                                                                                </Button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div
+                                                                                className="cursor-pointer hover:bg-muted/50 px-2 py-1 rounded truncate"
+                                                                            >
+                                                                                {row[col.name] === null ? (
+                                                                                    <span className="text-muted-foreground italic">NULL</span>
+                                                                                ) : (
+                                                                                    <TextFormatterWrapper
+                                                                                        content={typeof row[col.name] === 'object' && row[col.name] !== null ? JSON.stringify(row[col.name]) : String(row[col.name])}
+                                                                                        onSave={isEditable ? async (newValue) => {
+                                                                                            const whereClause = generateWhereClause(row);
+                                                                                            const valueStr = newValue === null ? 'NULL' : `'${String(newValue).replace(/'/g, "''")}'`;
+                                                                                            const updateSql = `UPDATE \`${dbName}\`.\`${tableName}\` SET \`${col.name}\` = ${valueStr} WHERE ${whereClause}`;
+                                                                                            const startTime = Date.now();
+                                                                                            try {
+                                                                                                await invoke("execute_sql", {
+                                                                                                    connectionId,
+                                                                                                    sql: updateSql
+                                                                                                });
+                                                                                                addCommandToConsole({
+                                                                                                    databaseType: 'mysql',
+                                                                                                    command: updateSql,
+                                                                                                    duration: Date.now() - startTime,
+                                                                                                    success: true
+                                                                                                });
+                                                                                                // Update local data
+                                                                                                const updatedRows = [...result.rows];
+                                                                                                updatedRows[rowIdx] = { ...updatedRows[rowIdx], [col.name]: newValue };
+                                                                                                setResult({ ...result, rows: updatedRows });
+                                                                                                setOriginalRows(updatedRows);
+                                                                                            } catch (err: any) {
+                                                                                                console.error("Update failed:", err);
+                                                                                                addCommandToConsole({
+                                                                                                    databaseType: 'mysql',
+                                                                                                    command: updateSql,
+                                                                                                    duration: 0,
+                                                                                                    success: false,
+                                                                                                    error: typeof err === 'string' ? err : JSON.stringify(err)
+                                                                                                });
+                                                                                            }
+                                                                                        } : undefined}
+                                                                                        readonly={!isEditable}
+                                                                                        title="Format value"
+                                                                                        onEdit={isEditable ? () => handleCellEdit(originalRowIdx, col.name, row[col.name], false) : undefined}
+                                                                                    >
+                                                                                        <div className="flex items-center gap-2 cursor-context-menu">
+                                                                                            <span className="flex-1 truncate">{typeof row[col.name] === 'object' && row[col.name] !== null ? JSON.stringify(row[col.name]) : String(row[col.name])}</span>
+                                                                                        </div>
+                                                                                    </TextFormatterWrapper>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                    </TableCell>
+                                                                ))}
+                                                            </TableRow>
+                                                        );
+                                                    })}
+                                                    {filteredRows.length === 0 && newRows.length === 0 && (
                                                         <TableRow>
                                                             <TableCell colSpan={result.columns.length || 1} className="text-center h-24 text-muted-foreground">
-                                                                {t('common.noResults', 'No results')}
+                                                                {hasActiveInlineFilters ? t('common.noFilterResults', '无匹配结果') : t('common.noResults', 'No results')}
                                                             </TableCell>
                                                         </TableRow>
                                                     )}
@@ -1127,6 +1158,14 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                             <Check className="h-3 w-3" />
                                                         </Button>
                                                     </div>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    {hasActiveInlineFilters ? (
+                                                        <span>{filteredRows.length} / {result.rows.length} {t('common.rowsReturned', 'rows returned')}</span>
+                                                    ) : (
+                                                        <span>{result.rows.length} {t('common.rowsReturned', 'rows returned')}</span>
+                                                    )}
+                                                    {result.affected_rows > 0 && <span>{t('common.affectedRows', 'Affected Rows')}: {result.affected_rows}</span>}
                                                 </div>
                                                 <div>
                                                     {t('common.show', '显示')} {currentPage * pageSize + 1} - {currentPage * pageSize + result.rows.length} {t('common.items', '条')}

@@ -4,9 +4,11 @@ import {
     ContextMenuContent,
     ContextMenuItem,
     ContextMenuTrigger,
+    ContextMenuSeparator,
 } from "@/components/ui/context-menu";
-import { Wand2 } from "lucide-react";
+import { Wand2, Pencil } from "lucide-react";
 import { TextFormatterDialog } from "./TextFormatterDialog";
+import { useTranslation } from "react-i18next";
 
 interface TextFormatterWrapperProps {
     children: React.ReactNode;
@@ -14,6 +16,7 @@ interface TextFormatterWrapperProps {
     onSave?: (newContent: string) => void;
     title?: string;
     readonly?: boolean;
+    onEdit?: () => void;
 }
 
 export function TextFormatterWrapper({
@@ -22,7 +25,9 @@ export function TextFormatterWrapper({
     onSave,
     title = "Format text",
     readonly = false,
+    onEdit,
 }: TextFormatterWrapperProps) {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
 
     if (!content) return <>{children}</>;
@@ -34,9 +39,18 @@ export function TextFormatterWrapper({
                     {children}
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-48">
+                    {onEdit && (
+                        <>
+                            <ContextMenuItem onClick={onEdit} className="gap-2 cursor-pointer">
+                                <Pencil className="h-4 w-4" />
+                                <span>{t('common.edit', '编辑')}</span>
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                        </>
+                    )}
                     <ContextMenuItem onClick={() => setOpen(true)} className="gap-2 cursor-pointer">
                         <Wand2 className="h-4 w-4" />
-                        <span>Format/View Text</span>
+                        <span>{t('common.viewFormatted', 'Format/View Text')}</span>
                     </ContextMenuItem>
                 </ContextMenuContent>
             </ContextMenu>
@@ -52,3 +66,4 @@ export function TextFormatterWrapper({
         </>
     );
 }
+

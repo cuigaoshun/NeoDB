@@ -8,7 +8,8 @@ import {
     ChevronDown,
     Table as TableIcon,
     Loader2,
-    FileCode
+    FileCode,
+    Plus
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { addCommandToConsole } from "@/components/ui/CommandConsole";
@@ -374,6 +375,24 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
             });
         }
     };
+
+    // 新建查询Tab
+    const handleNewQueryTab = (dbName: string, tableName?: string) => {
+        const tabId = `query-${connection.id}-${dbName}-${Date.now()}`;
+        const initialSql = tableName
+            ? `SELECT * FROM \`${dbName}\`.\`${tableName}\`;`
+            : `-- ${t('mysql.newQueryTab', '新建查询')}\nSELECT * FROM \`${dbName}\`.table_name;`;
+        addTab({
+            id: tabId,
+            title: tableName ? `${tableName} - Query` : `${dbName} - Query`,
+            type: connection.db_type,
+            connectionId: connection.id,
+            dbName,
+            tableName: tableName || undefined,
+            initialSql
+        });
+    };
+
     // Other types (postgres) might not support tree view yet
     if (connection.db_type !== 'mysql' && connection.db_type !== 'redis' && connection.db_type !== 'sqlite') {
         // Simple filter for non-supported types
@@ -472,6 +491,11 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                                             </div>
                                         </ContextMenuTrigger>
                                         <ContextMenuContent>
+                                            <ContextMenuItem onClick={() => handleNewQueryTab(db)}>
+                                                <Plus className="h-3 w-3 mr-2" />
+                                                {t('mysql.newQueryTab', '新建查询')}
+                                            </ContextMenuItem>
+                                            <ContextMenuSeparator />
                                             <ContextMenuItem onClick={() => handleCreateTable(db)}>
                                                 {t('mysql.createTable')}
                                             </ContextMenuItem>
@@ -525,6 +549,12 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                                                             onClick={() => handleViewTableSchema(db, table)}
                                                         >
                                                             {t('mysql.viewSchema')}
+                                                        </ContextMenuItem>
+                                                        <ContextMenuItem
+                                                            onClick={() => handleNewQueryTab(db, table)}
+                                                        >
+                                                            <Plus className="h-3 w-3 mr-2" />
+                                                            {t('mysql.newQueryTab', '新建查询')}
                                                         </ContextMenuItem>
                                                         <ContextMenuSeparator />
                                                         <ContextMenuItem

@@ -98,7 +98,10 @@ const resources = {
         "operator": "Operator",
         "value": "Value",
         "field": "Field",
-        "combineLogic": "Combine top-level items with:"
+        "combineLogic": "Combine top-level items with:",
+        "localFilter": "Filter...",
+        "noFilterResults": "No matching results",
+        "group": "Group"
       },
       "menu": {
         "home": "Home",
@@ -169,7 +172,8 @@ const resources = {
         "dropTable": "Drop Table",
         "viewData": "View Data",
         "viewSchema": "View Schema",
-        "refreshTables": "Refresh Tables"
+        "refreshTables": "Refresh Tables",
+        "newQueryTab": "New Query"
       },
       "redis": {
         "connected": "Connected",
@@ -331,7 +335,10 @@ const resources = {
         "operator": "运算符",
         "value": "值",
         "field": "字段",
-        "combineLogic": "顶层组合逻辑："
+        "combineLogic": "顶层组合逻辑：",
+        "localFilter": "筛选...",
+        "noFilterResults": "无匹配结果",
+        "group": "组"
       },
       "menu": {
         "home": "首页",
@@ -402,7 +409,8 @@ const resources = {
         "dropTable": "删除表",
         "viewData": "查看数据",
         "viewSchema": "查看表结构",
-        "refreshTables": "刷新表列表"
+        "refreshTables": "刷新表列表",
+        "newQueryTab": "新建查询"
       },
       "redis": {
         "connected": "已连接",

@@ -26,6 +26,8 @@ export interface FilterNode {
     // For groups
     children?: FilterNode[];
     logic?: LogicOperator; // Logic applied to children of this group
+    // Logic operator to connect with the NEXT sibling (not used for the last item)
+    nextLogic?: LogicOperator;
 }
 
 interface FilterBuilderProps {
@@ -48,6 +50,12 @@ const OPERATORS = [
     { label: 'IS NULL', value: 'IS NULL' },
     { label: 'IS NOT NULL', value: 'IS NOT NULL' },
 ];
+
+// Helper to check if a column type is date/time related
+const isDateTimeType = (typeName: string): boolean => {
+    const type = typeName.toUpperCase();
+    return type.includes('DATE') || type.includes('TIME') || type.includes('TIMESTAMP');
+};
 
 export function FilterBuilder({ columns, onChange, onExecute, initialState }: FilterBuilderProps) {
     const { t } = useTranslation();
@@ -96,13 +104,26 @@ export function FilterBuilder({ columns, onChange, onExecute, initialState }: Fi
         }
 
         if (node.type === 'group' && node.children && node.children.length > 0) {
-            const childrenClauses = node.children
-                .map(child => generateWhereClause(child))
-                .filter(c => c !== '');
+            const activeChildren = node.children.filter(c => c.isActive);
+            if (activeChildren.length === 0) return '';
 
-            if (childrenClauses.length === 0) return '';
+            // Build clause respecting each node's nextLogic
+            let combined = '';
+            for (let i = 0; i < activeChildren.length; i++) {
+                const child = activeChildren[i];
+                const childClause = generateWhereClause(child);
+                if (!childClause) continue;
 
-            const combined = childrenClauses.join(` ${node.logic} `);
+                if (combined) {
+                    // Use the previous node's nextLogic (or default AND)
+                    const prevChild = activeChildren[i - 1];
+                    const logicOp = prevChild?.nextLogic || 'AND';
+                    combined += ` ${logicOp} ${childClause}`;
+                } else {
+                    combined = childClause;
+                }
+            }
+
             // Don't wrap root in parens, but wrap subgroups
             return node.id === 'root' ? combined : `(${combined})`;
         }
@@ -132,7 +153,8 @@ export function FilterBuilder({ columns, onChange, onExecute, initialState }: Fi
             children: [],
             field: columns.length > 0 ? columns[0].name : '',
             operator: '=',
-            value: ''
+            value: '',
+            nextLogic: 'AND'
         };
 
         const addRecursive = (node: FilterNode): FilterNode => {
@@ -164,7 +186,12 @@ export function FilterBuilder({ columns, onChange, onExecute, initialState }: Fi
         }
     };
 
-    const renderNode = (node: FilterNode, depth = 0, _isLast = false) => {
+    // Get column info by name
+    const getColumnInfo = (fieldName: string): ColumnInfo | undefined => {
+        return columns.find(c => c.name === fieldName);
+    };
+
+    const renderNode = (node: FilterNode, depth = 0, isLast = false, siblings: FilterNode[] = []) => {
         if (node.id === 'root') {
             return (
                 <div className="flex flex-col gap-2">
@@ -179,7 +206,7 @@ export function FilterBuilder({ columns, onChange, onExecute, initialState }: Fi
                             </Button>
                         </div>
                     )}
-                    {node.children?.map((child, i) => renderNode(child, 0, i === node.children!.length - 1))}
+                    {node.children?.map((child, i) => renderNode(child, 0, i === node.children!.length - 1, node.children!))}
                     {/* Root add buttons at bottom if not empty */}
                     {node.children && node.children.length > 0 && (
                         <div className="flex gap-2 items-center mt-2 border-t pt-2 border-dashed">
@@ -190,110 +217,126 @@ export function FilterBuilder({ columns, onChange, onExecute, initialState }: Fi
                                 <FolderPlus className="h-3 w-3 mr-1" /> {t('common.addGroup', 'Add Group')}
                             </Button>
                             {onExecute && (
-                                <Button 
-                                    size="sm" 
+                                <Button
+                                    size="sm"
                                     variant="outline"
-                                    onClick={() => onExecute(generateWhereClause(root))} 
+                                    onClick={() => onExecute(generateWhereClause(root))}
                                     className="text-xs h-7 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950"
                                 >
                                     <Play className="h-3 w-3 mr-1" /> {t('common.filter', 'Filter')}
                                 </Button>
                             )}
-                            <span className="text-xs text-muted-foreground ml-4 mr-2">{t('common.combineLogic', 'Combine top-level items with:')}</span>
-                            <Select value={root.logic} onValueChange={(val) => updateNode('root', { logic: val as LogicOperator })}>
-                                <SelectTrigger className="w-[80px] h-7 text-xs">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="AND">AND</SelectItem>
-                                    <SelectItem value="OR">OR</SelectItem>
-                                </SelectContent>
-                            </Select>
                         </div>
                     )}
                 </div>
             );
         }
 
+        const columnInfo = node.field ? getColumnInfo(node.field) : undefined;
+        const isDateTime = columnInfo && isDateTimeType(columnInfo.type_name);
+
         return (
-            <div key={node.id} className={cn("flex flex-col gap-2 pl-4 py-1", depth > 0 && "border-l border-dashed")}>
-                <div className="flex items-center gap-2">
-                    <Checkbox
-                        checked={node.isActive}
-                        onCheckedChange={(c) => updateNode(node.id, { isActive: c as boolean })}
-                    />
+            <div key={node.id} className="flex flex-col gap-1">
+                <div className={cn("flex flex-col gap-2 pl-4 py-1", depth > 0 && "border-l border-dashed")}>
+                    <div className="flex items-center gap-2">
+                        <Checkbox
+                            checked={node.isActive}
+                            onCheckedChange={(c) => updateNode(node.id, { isActive: c as boolean })}
+                        />
 
-                    {node.type === 'condition' ? (
-                        <>
-                            <Select value={node.field} onValueChange={(val) => updateNode(node.id, { field: val })}>
-                                <SelectTrigger className="w-[150px] h-8 text-xs">
-                                    <SelectValue placeholder={t('common.field', 'Field')} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {columns.map(col => (
-                                        <SelectItem key={col.name} value={col.name}>{col.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        {node.type === 'condition' ? (
+                            <>
+                                <Select value={node.field} onValueChange={(val) => updateNode(node.id, { field: val })}>
+                                    <SelectTrigger className="w-[150px] h-8 text-xs">
+                                        <SelectValue placeholder={t('common.field', 'Field')} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {columns.map(col => (
+                                            <SelectItem key={col.name} value={col.name}>{col.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
 
-                            <Select value={node.operator} onValueChange={(val) => updateNode(node.id, { operator: val })}>
-                                <SelectTrigger className="w-[100px] h-8 text-xs font-mono text-muted-foreground">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {OPERATORS.map(op => (
-                                        <SelectItem key={op.value} value={op.value}>{op.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                <Select value={node.operator} onValueChange={(val) => updateNode(node.id, { operator: val })}>
+                                    <SelectTrigger className="w-[100px] h-8 text-xs font-mono text-muted-foreground">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {OPERATORS.map(op => (
+                                            <SelectItem key={op.value} value={op.value}>{op.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
 
-                            {!['IS NULL', 'IS NOT NULL'].includes(node.operator || '') && (
-                                <Input
-                                    value={node.value}
-                                    onChange={e => updateNode(node.id, { value: e.target.value })}
-                                    className="w-[150px] h-8 text-xs"
-                                    placeholder="Value"
-                                />
+                                {!['IS NULL', 'IS NOT NULL'].includes(node.operator || '') && (
+                                    isDateTime ? (
+                                        <Input
+                                            type="datetime-local"
+                                            value={node.value || ''}
+                                            onChange={e => updateNode(node.id, { value: e.target.value })}
+                                            className="w-[200px] h-8 text-xs"
+                                        />
+                                    ) : (
+                                        <Input
+                                            value={node.value}
+                                            onChange={e => updateNode(node.id, { value: e.target.value })}
+                                            className="w-[150px] h-8 text-xs"
+                                            placeholder="Value"
+                                        />
+                                    )
+                                )}
+                            </>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-bold text-muted-foreground">(</span>
+                                <span className="text-xs text-muted-foreground">{t('common.group', 'Group')}</span>
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-1">
+                            {node.type === 'group' && (
+                                <>
+                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => addNode(node.id, 'condition')} title="Add sub-condition">
+                                        <Plus className="h-3 w-3" />
+                                    </Button>
+                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => addNode(node.id, 'group')} title="Add sub-group">
+                                        <FolderPlus className="h-3 w-3" />
+                                    </Button>
+                                </>
                             )}
-                        </>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-muted-foreground">(</span>
-                            <Select value={node.logic} onValueChange={(val) => updateNode(node.id, { logic: val as LogicOperator })}>
-                                <SelectTrigger className="w-[70px] h-7 text-xs bg-muted/50 border-none">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="AND">AND</SelectItem>
-                                    <SelectItem value="OR">OR</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => deleteNode(node.id)}>
+                                <Trash2 className="h-3 w-3" />
+                            </Button>
+                        </div>
+                    </div>
+
+                    {node.type === 'group' && node.children && node.children.length > 0 && (
+                        <div className="ml-2">
+                            {node.children.map((child, i) => renderNode(child, depth + 1, i === node.children!.length - 1, node.children!))}
+                            <div className="flex items-center gap-2 pl-4">
+                                <span className="text-sm font-bold text-muted-foreground">)</span>
+                            </div>
                         </div>
                     )}
-
-                    <div className="flex items-center gap-1">
-                        {node.type === 'group' && (
-                            <>
-                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => addNode(node.id, 'condition')} title="Add sub-condition">
-                                    <Plus className="h-3 w-3" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => addNode(node.id, 'group')} title="Add sub-group">
-                                    <FolderPlus className="h-3 w-3" />
-                                </Button>
-                            </>
-                        )}
-                        <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => deleteNode(node.id)}>
-                            <Trash2 className="h-3 w-3" />
-                        </Button>
-                    </div>
                 </div>
 
-                {node.type === 'group' && node.children && node.children.length > 0 && (
-                    <div className="ml-2">
-                        {node.children.map((child, i) => renderNode(child, depth + 1, i === node.children!.length - 1))}
-                        <div className="flex items-center gap-2 pl-4">
-                            <span className="text-sm font-bold text-muted-foreground">)</span>
-                        </div>
+                {/* Logic operator selector between siblings (not shown for last item) */}
+                {!isLast && siblings.length > 1 && (
+                    <div className="flex items-center gap-2 pl-4 py-1">
+                        <div className="flex-1 h-[1px] bg-border/50" />
+                        <Select
+                            value={node.nextLogic || 'AND'}
+                            onValueChange={(val) => updateNode(node.id, { nextLogic: val as LogicOperator })}
+                        >
+                            <SelectTrigger className="w-[70px] h-6 text-xs bg-muted/50 border-dashed">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="AND">AND</SelectItem>
+                                <SelectItem value="OR">OR</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <div className="flex-1 h-[1px] bg-border/50" />
                     </div>
                 )}
             </div>
@@ -306,3 +349,4 @@ export function FilterBuilder({ columns, onChange, onExecute, initialState }: Fi
         </div>
     );
 }
+
