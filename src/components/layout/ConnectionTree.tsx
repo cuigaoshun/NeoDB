@@ -9,7 +9,6 @@ import {
     Table as TableIcon,
     Loader2,
     FileCode,
-    Plus
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { addCommandToConsole } from "@/components/ui/CommandConsole";
