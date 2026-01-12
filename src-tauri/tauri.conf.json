@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "neodb",
+  "productName": "xDB",
   "version": "0.1.0",
-  "identifier": "com.alan.neodb",
+  "identifier": "com.alan.xDB",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "NeoDB",
+        "title": "xDB",
         "width": 800,
         "height": 600
       }

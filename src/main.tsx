@@ -7,7 +7,7 @@ import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <ThemeProvider defaultTheme="system" storageKey="neodb-ui-theme">
+    <ThemeProvider defaultTheme="system" storageKey="xDB-ui-theme">
       <App />
     </ThemeProvider>
   </React.StrictMode>,

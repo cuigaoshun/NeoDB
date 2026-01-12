@@ -6,7 +6,7 @@ const resources = {
   en: {
     translation: {
       "app": {
-        "name": "NeoDB"
+        "name": "xDB"
       },
       "sidebar": {
         "connections": "Connections",
@@ -243,7 +243,7 @@ const resources = {
   zh: {
     translation: {
       "app": {
-        "name": "NeoDB"
+        "name": "xDB"
       },
       "sidebar": {
         "connections": "连接列表",

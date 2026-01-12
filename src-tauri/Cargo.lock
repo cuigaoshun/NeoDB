@@ -2346,24 +2346,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "neodb"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "flate2",
- "memcache",
- "redis",
- "rust_decimal",
- "serde",
- "serde_json",
- "sqlx",
- "tauri",
- "tauri-build",
- "tauri-plugin-opener",
- "tokio",
-]
-
-[[package]]
 name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6006,6 +5988,24 @@ dependencies = [
  "libc",
  "once_cell",
  "pkg-config",
+]
+
+[[package]]
+name = "xDB"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "flate2",
+ "memcache",
+ "redis",
+ "rust_decimal",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-opener",
+ "tokio",
 ]
 
 [[package]]

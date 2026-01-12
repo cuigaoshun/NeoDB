@@ -9,7 +9,7 @@ pub struct DbState {
     pub pool: DbPool,
 }
 
-const DB_FILE_NAME: &str = "neodb.sqlite";
+const DB_FILE_NAME: &str = "xDB.sqlite";
 
 pub async fn init_db(app: &AppHandle) -> Result<DbState, Box<dyn std::error::Error>> {
     // 1. 获取应用数据目录
