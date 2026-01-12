@@ -15,6 +15,13 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { cn, transparentTheme } from "@/lib/utils";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -897,29 +904,62 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                 )}
 
                                 {result && (
-                                    <div className="h-full flex flex-col">
+                                    <div className="h-full flex flex-col gap-0">
 
                                         <div className="border rounded-md bg-background overflow-auto flex-1">
                                             <Table>
                                                 <TableHeader className="sticky top-0 bg-muted/50">
                                                     <TableRow>
                                                         {result.columns.map((col, i) => (
-                                                            <TableHead key={i} className="whitespace-nowrap">
-                                                                <div className="flex flex-col gap-0.5">
+                                                            <TableHead key={i} className="whitespace-nowrap max-w-[250px]">
+                                                                <div className="flex items-center gap-1">
                                                                     <span className="font-semibold text-foreground">{col.name}</span>
-                                                                    <div className="flex items-center gap-1 text-xs text-muted-foreground font-normal">
-                                                                        {getColumnTypeIcon(col.type_name)}
-                                                                        <span className="lowercase">{col.type_name}</span>
-                                                                    </div>
-                                                                    <Input
-                                                                        value={inlineFilters[col.name] || ''}
-                                                                        onChange={(e) => setInlineFilters(prev => ({
-                                                                            ...prev,
-                                                                            [col.name]: e.target.value
-                                                                        }))}
-                                                                        placeholder={t('common.localFilter', '筛选...')}
-                                                                        className="h-6 text-xs mt-1 w-full min-w-[80px]"
-                                                                    />
+                                                                    {getColumnTypeIcon(col.type_name)}
+                                                                    <span className="text-xs text-muted-foreground lowercase">({col.type_name})</span>
+                                                                    {/* 筛选下拉菜单 */}
+                                                                    <DropdownMenu>
+                                                                        <DropdownMenuTrigger asChild>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="sm"
+                                                                                className={cn(
+                                                                                    "h-5 w-5 p-0 ml-1",
+                                                                                    inlineFilters[col.name] && "text-blue-600"
+                                                                                )}
+                                                                            >
+                                                                                <Filter className="h-3 w-3" />
+                                                                            </Button>
+                                                                        </DropdownMenuTrigger>
+                                                                        <DropdownMenuContent align="start" className="w-48 max-h-60 overflow-auto">
+                                                                            <DropdownMenuItem
+                                                                                onClick={() => setInlineFilters(prev => ({ ...prev, [col.name]: '' }))}
+                                                                                className="text-xs"
+                                                                            >
+                                                                                (清除筛选)
+                                                                            </DropdownMenuItem>
+                                                                            <DropdownMenuSeparator />
+                                                                            {(() => {
+                                                                                const uniqueValues = [...new Set(
+                                                                                    result.rows.map(r => {
+                                                                                        const v = r[col.name];
+                                                                                        return v === null ? 'NULL' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+                                                                                    })
+                                                                                )].slice(0, 50);
+                                                                                return uniqueValues.map((val, idx) => (
+                                                                                    <DropdownMenuItem
+                                                                                        key={idx}
+                                                                                        onClick={() => setInlineFilters(prev => ({ ...prev, [col.name]: val }))}
+                                                                                        className={cn(
+                                                                                            "text-xs truncate",
+                                                                                            inlineFilters[col.name] === val && "bg-accent"
+                                                                                        )}
+                                                                                    >
+                                                                                        {val.length > 30 ? val.substring(0, 30) + '...' : val}
+                                                                                    </DropdownMenuItem>
+                                                                                ));
+                                                                            })()}
+                                                                        </DropdownMenuContent>
+                                                                    </DropdownMenu>
                                                                 </div>
                                                             </TableHead>
                                                         ))}
@@ -932,23 +972,25 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                             {result.columns.map((col, colIdx) => (
                                                                 <TableCell key={colIdx} className="whitespace-nowrap max-w-[300px]">
                                                                     {editingCell?.rowIdx === rowIdx && editingCell?.colName === col.name && editingCell?.isNewRow ? (
-                                                                        <div className="flex gap-1 items-center">
+                                                                        <div className="relative">
                                                                             <Input
                                                                                 value={editValue}
                                                                                 onChange={(e) => setEditValue(e.target.value)}
-                                                                                className="h-7 text-xs min-w-[200px]"
+                                                                                className="h-7 text-xs w-full pr-14"
                                                                                 autoFocus
                                                                                 onKeyDown={(e) => {
                                                                                     if (e.key === 'Enter') handleCellSubmit();
                                                                                     if (e.key === 'Escape') handleCellCancel();
                                                                                 }}
                                                                             />
-                                                                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleCellSubmit}>
-                                                                                <Check className="h-3 w-3 text-green-600" />
-                                                                            </Button>
-                                                                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleCellCancel}>
-                                                                                <X className="h-3 w-3 text-red-600" />
-                                                                            </Button>
+                                                                            <div className="absolute right-0 top-0 h-full flex items-center gap-0.5 pr-1">
+                                                                                <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={handleCellSubmit}>
+                                                                                    <Check className="h-3 w-3 text-green-600" />
+                                                                                </Button>
+                                                                                <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={handleCellCancel}>
+                                                                                    <X className="h-3 w-3 text-red-600" />
+                                                                                </Button>
+                                                                            </div>
                                                                         </div>
                                                                     ) : (
                                                                         <div
@@ -1019,23 +1061,25 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                 {result.columns.map((col, colIdx) => (
                                                                     <TableCell key={colIdx} className="whitespace-nowrap max-w-[300px]">
                                                                         {editingCell?.rowIdx === originalRowIdx && editingCell?.colName === col.name && !editingCell?.isNewRow ? (
-                                                                            <div className="flex gap-1 items-center">
+                                                                            <div className="relative">
                                                                                 <Input
                                                                                     value={editValue}
                                                                                     onChange={(e) => setEditValue(e.target.value)}
-                                                                                    className="h-7 text-xs"
+                                                                                    className="h-7 text-xs w-full pr-14"
                                                                                     autoFocus
                                                                                     onKeyDown={(e) => {
                                                                                         if (e.key === 'Enter') handleCellSubmit();
                                                                                         if (e.key === 'Escape') handleCellCancel();
                                                                                     }}
                                                                                 />
-                                                                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleCellSubmit}>
-                                                                                    <Check className="h-3 w-3 text-green-600" />
-                                                                                </Button>
-                                                                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleCellCancel}>
-                                                                                    <X className="h-3 w-3 text-red-600" />
-                                                                                </Button>
+                                                                                <div className="absolute right-0 top-0 h-full flex items-center gap-0.5 pr-1">
+                                                                                    <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={handleCellSubmit}>
+                                                                                        <Check className="h-3 w-3 text-green-600" />
+                                                                                    </Button>
+                                                                                    <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={handleCellCancel}>
+                                                                                        <X className="h-3 w-3 text-red-600" />
+                                                                                    </Button>
+                                                                                </div>
                                                                             </div>
                                                                         ) : (
                                                                             <div
@@ -1107,74 +1151,61 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
 
                                         {/* 分页控件 */}
                                         {result.rows.length > 0 && (
-                                            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                                                <div className="flex items-center gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => handlePageChange(currentPage - 1)}
-                                                        disabled={currentPage === 0}
-                                                        className="h-7"
-                                                    >
-                                                        <ChevronLeft className="h-3 w-3" />
-                                                        {t('common.prevPage', '上一页')}
-                                                    </Button>
-                                                    <span>{t('common.page', '第')} {currentPage + 1} {t('common.page', '页')}</span>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => handlePageChange(currentPage + 1)}
-                                                        disabled={result.rows.length < pageSize}
-                                                        className="h-7"
-                                                    >
-                                                        {t('common.nextPage', '下一页')}
-                                                        <ChevronRight className="h-3 w-3" />
-                                                    </Button>
-
-                                                    <div className="h-4 w-[1px] bg-border mx-2"></div>
-
-                                                    {/* LIMIT 控制 */}
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-xs text-muted-foreground">Limit:</span>
-                                                        <Input
-                                                            type="number"
-                                                            value={pageSizeInput}
-                                                            onChange={(e) => setPageSizeInput(e.target.value)}
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === 'Enter') {
-                                                                    handlePageSizeChange();
-                                                                }
-                                                            }}
-                                                            className="w-16 h-7 text-xs"
-                                                            min="1"
-                                                        />
-                                                        <Button
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            onClick={handlePageSizeChange}
-                                                            className="h-7 w-7 p-0"
-                                                            title="应用 Limit"
-                                                        >
-                                                            <Check className="h-3 w-3" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-4">
-                                                    {hasActiveInlineFilters ? (
-                                                        <span>{filteredRows.length} / {result.rows.length} {t('common.rowsReturned', 'rows returned')}</span>
-                                                    ) : (
-                                                        <span>{result.rows.length} {t('common.rowsReturned', 'rows returned')}</span>
-                                                    )}
-                                                    {result.affected_rows > 0 && <span>{t('common.affectedRows', 'Affected Rows')}: {result.affected_rows}</span>}
-                                                </div>
-                                                <div>
-                                                    {t('common.show', '显示')} {currentPage * pageSize + 1} - {currentPage * pageSize + result.rows.length} {t('common.items', '条')}
-                                                    {!isEditable && editDisabledReason && (
-                                                        <span className="ml-4 text-yellow-600 dark:text-yellow-400">
-                                                            ⚠️ {editDisabledReason}
-                                                        </span>
-                                                    )}
-                                                </div>
+                                            <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                                                {hasActiveInlineFilters ? (
+                                                    <span>{filteredRows.length} / {result.rows.length} {t('common.rowsReturned', 'rows returned')}</span>
+                                                ) : (
+                                                    <span>{result.rows.length} {t('common.rowsReturned', 'rows returned')}</span>
+                                                )}
+                                                {result.affected_rows > 0 && <span>| {t('common.affectedRows', 'Affected Rows')}: {result.affected_rows}</span>}
+                                                {!isEditable && editDisabledReason && (
+                                                    <span className="text-yellow-600 dark:text-yellow-400">
+                                                        ⚠️ {editDisabledReason}
+                                                    </span>
+                                                )}
+                                                <div className="h-4 w-[1px] bg-border"></div>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handlePageChange(currentPage - 1)}
+                                                    disabled={currentPage === 0}
+                                                    className="h-6 text-xs"
+                                                >
+                                                    <ChevronLeft className="h-3 w-3" />
+                                                </Button>
+                                                <span>{t('common.page', '页')} {currentPage + 1}</span>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handlePageChange(currentPage + 1)}
+                                                    disabled={result.rows.length < pageSize}
+                                                    className="h-6 text-xs"
+                                                >
+                                                    <ChevronRight className="h-3 w-3" />
+                                                </Button>
+                                                <div className="h-4 w-[1px] bg-border"></div>
+                                                <span>Limit:</span>
+                                                <Input
+                                                    type="number"
+                                                    value={pageSizeInput}
+                                                    onChange={(e) => setPageSizeInput(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            handlePageSizeChange();
+                                                        }
+                                                    }}
+                                                    className="w-20 h-6 text-xs"
+                                                    min="1"
+                                                />
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={handlePageSizeChange}
+                                                    className="h-6 w-6 p-0"
+                                                    title="应用 Limit"
+                                                >
+                                                    <Check className="h-3 w-3" />
+                                                </Button>
                                             </div>
                                         )}
                                     </div>

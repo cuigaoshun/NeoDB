@@ -322,13 +322,12 @@ export function FilterBuilder({ columns, onChange, onExecute, initialState }: Fi
 
                 {/* Logic operator selector between siblings (not shown for last item) */}
                 {!isLast && siblings.length > 1 && (
-                    <div className="flex items-center gap-2 pl-4 py-1">
-                        <div className="flex-1 h-[1px] bg-border/50" />
+                    <div className="flex items-center pl-4 py-1">
                         <Select
                             value={node.nextLogic || 'AND'}
                             onValueChange={(val) => updateNode(node.id, { nextLogic: val as LogicOperator })}
                         >
-                            <SelectTrigger className="w-[70px] h-6 text-xs bg-muted/50 border-dashed">
+                            <SelectTrigger className="w-[55px] h-6 text-xs bg-muted/50 border-dashed">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -336,7 +335,6 @@ export function FilterBuilder({ columns, onChange, onExecute, initialState }: Fi
                                 <SelectItem value="OR">OR</SelectItem>
                             </SelectContent>
                         </Select>
-                        <div className="flex-1 h-[1px] bg-border/50" />
                     </div>
                 )}
             </div>

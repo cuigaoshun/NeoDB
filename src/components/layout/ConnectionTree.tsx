@@ -492,7 +492,6 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                                         </ContextMenuTrigger>
                                         <ContextMenuContent>
                                             <ContextMenuItem onClick={() => handleNewQueryTab(db)}>
-                                                <Plus className="h-3 w-3 mr-2" />
                                                 {t('mysql.newQueryTab', '新建查询')}
                                             </ContextMenuItem>
                                             <ContextMenuSeparator />
@@ -553,7 +552,6 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                                                         <ContextMenuItem
                                                             onClick={() => handleNewQueryTab(db, table)}
                                                         >
-                                                            <Plus className="h-3 w-3 mr-2" />
                                                             {t('mysql.newQueryTab', '新建查询')}
                                                         </ContextMenuItem>
                                                         <ContextMenuSeparator />
