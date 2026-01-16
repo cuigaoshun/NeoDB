@@ -1027,10 +1027,12 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                         {result.columns.map((col, i) => (
                                                             <TableHead key={i} className="whitespace-nowrap w-[200px] min-w-[200px]">
                                                                 <div className="flex items-center justify-between">
-                                                                    <div className="flex items-center gap-1 flex-1 min-w-0 truncate">
-                                                                        <span className="font-semibold text-foreground truncate">{col.name}</span>
-                                                                        {getColumnTypeIcon(col.type_name)}
-                                                                        <span className="text-xs text-muted-foreground lowercase truncate">({col.type_name})</span>
+                                                                    <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0 truncate">
+                                                                        <span className="font-semibold text-foreground truncate" title={col.name}>{col.name}</span>
+                                                                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                                            {getColumnTypeIcon(col.type_name)}
+                                                                            <span className="lowercase truncate">({col.type_name})</span>
+                                                                        </div>
                                                                     </div>
                                                                     {/* 筛选下拉菜单 */}
                                                                     <DropdownMenu>
