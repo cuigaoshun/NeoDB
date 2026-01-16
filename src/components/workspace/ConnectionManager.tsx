@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Database, Server, MoreHorizontal, ExternalLink, Trash2, Edit, FileCode, LayoutGrid } from "lucide-react";
+import { Plus, Search, Database, Server, MoreHorizontal, ExternalLink, Trash2, Edit, FileCode, LayoutGrid, Upload, Download } from "lucide-react";
 import { useAppStore, Connection, DbType } from "@/store/useAppStore";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
@@ -18,6 +18,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { ConnectionForm } from "../connection/ConnectionForm";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ExportConnectionsDialog } from "../connection/ExportConnectionsDialog";
+import { ImportConnectionsDialog } from "../connection/ImportConnectionsDialog";
 
 export function ConnectionManager() {
     const { t } = useTranslation();
@@ -30,6 +32,9 @@ export function ConnectionManager() {
     const [editingConn, setEditingConn] = useState<Connection | null>(null);
     const [deletingConnId, setDeletingConnId] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    const [exportOpen, setExportOpen] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
 
     // Load connections from backend
     const fetchConnections = async () => {
@@ -88,7 +93,6 @@ export function ConnectionManager() {
             // Backend expects 'args' object wrapping the fields for CreateConnectionArgs
             // Rust struct: pub struct CreateConnectionArgs { name, db_type, ... }
             // Command signature: fn create_connection(..., args: CreateConnectionArgs)
-
             // Note: invoke accepts an object where keys map to function arguments.
             // So we pass { args: data }
             await invoke("create_connection", { args: data });
@@ -181,6 +185,14 @@ export function ConnectionManager() {
                                 />
                             </DialogContent>
                         </Dialog>
+                        <div className="flex gap-2">
+                             <Button variant="outline" size="icon" onClick={() => setImportOpen(true)} title={t('settings.importConnections')}>
+                                 <Download className="h-4 w-4" />
+                             </Button>
+                             <Button variant="outline" size="icon" onClick={() => setExportOpen(true)} title={t('settings.exportConnections')}>
+                                 <Upload className="h-4 w-4" />
+                             </Button>
+                        </div>
                     </div>
                 </div>
 
@@ -308,6 +320,17 @@ export function ConnectionManager() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ExportConnectionsDialog 
+                open={exportOpen} 
+                onOpenChange={setExportOpen} 
+            />
+            
+            <ImportConnectionsDialog 
+                open={importOpen} 
+                onOpenChange={setImportOpen}
+                onImportSuccess={fetchConnections}
+            />
         </div>
     );
 }

@@ -33,3 +33,5 @@ memcache = { version = "0.17", default-features = false }
 
 rust_decimal = "1"
 flate2 = "1.0"
+tauri-plugin-dialog = "2.6.0"
+tauri-plugin-fs = "2.4.5"
