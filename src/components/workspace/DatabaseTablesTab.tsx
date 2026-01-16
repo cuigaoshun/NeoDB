@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useAppStore, Connection, Tab } from "@/store/useAppStore";
+import { useAppStore } from "@/store/useAppStore";
 import { invoke } from "@tauri-apps/api/core";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,11 @@ interface SqlResult {
     rows: Record<string, any>[];
 }
 
+interface TableInfo {
+    name: string;
+    comment?: string;
+}
+
 interface DatabaseTablesTabProps {
     tabId: string;
     connectionId: number;
@@ -36,12 +41,12 @@ interface DatabaseTablesTabProps {
     dbType: string;
 }
 
-export function DatabaseTablesTab({ tabId, connectionId, dbName, dbType }: DatabaseTablesTabProps) {
+export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTablesTabProps) {
     const { t } = useTranslation();
     const addTab = useAppStore(state => state.addTab);
     const connection = useAppStore(state => state.connections.find(c => c.id === connectionId));
 
-    const [tables, setTables] = useState<string[]>([]);
+    const [tables, setTables] = useState<TableInfo[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
@@ -63,7 +68,7 @@ export function DatabaseTablesTab({ tabId, connectionId, dbName, dbType }: Datab
         let command = "";
         
         try {
-            let tableNames: string[] = [];
+            let tableList: TableInfo[] = [];
 
             if (dbType === 'sqlite') {
                 command = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;";
@@ -71,23 +76,33 @@ export function DatabaseTablesTab({ tabId, connectionId, dbName, dbType }: Datab
                     connectionId,
                     sql: command
                 });
-                tableNames = result.rows
-                    .map(row => Object.values(row)[0] as string)
-                    .filter(Boolean);
+                tableList = result.rows
+                    .map(row => ({ name: Object.values(row)[0] as string }))
+                    .filter(item => Boolean(item.name));
             } else {
-                command = `SHOW TABLES FROM \`${dbName}\``;
+                command = `SHOW TABLE STATUS FROM \`${dbName}\``;
                 const result = await invoke<SqlResult>('execute_sql', {
                     connectionId,
                     sql: command
                 });
 
-                // Robustly parse result by taking the first value of each row
-                tableNames = result.rows
-                    .map(row => Object.values(row)[0] as string)
-                    .filter(Boolean);
+                // Robustly parse result by looking for specific keys if possible, or fallback
+                tableList = result.rows
+                    .map(row => {
+                        // find key for name (usually Name) and comment (usually Comment)
+                        // keys might be case sensitive depending on driver, usually returned as is from DB
+                        const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name') || Object.keys(row)[0];
+                        const commentKey = Object.keys(row).find(k => k.toLowerCase() === 'comment');
+                        
+                        return {
+                            name: row[nameKey] as string,
+                            comment: commentKey ? row[commentKey] as string : undefined
+                        };
+                    })
+                    .filter(item => Boolean(item.name));
             }
 
-            setTables(tableNames);
+            setTables(tableList);
 
             addCommandToConsole({
                 databaseType: dbType as any,
@@ -206,7 +221,8 @@ export function DatabaseTablesTab({ tabId, connectionId, dbName, dbType }: Datab
     };
 
     const filteredTables = tables.filter(t => 
-        t.toLowerCase().includes(searchTerm.toLowerCase())
+        t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (t.comment && t.comment.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     if (!connection) {
@@ -276,35 +292,42 @@ export function DatabaseTablesTab({ tabId, connectionId, dbName, dbType }: Datab
                 ) : (
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-2 content-start">
                         {filteredTables.map(table => (
-                            <ContextMenu key={table}>
+                            <ContextMenu key={table.name}>
                                 <ContextMenuTrigger>
                                     <div 
                                         className="group flex flex-col items-start p-2 rounded-lg bg-card hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors relative"
-                                        onClick={() => handleSelectTable(table)}
+                                        onClick={() => handleSelectTable(table.name)}
                                     >
                                         <div className="flex items-center gap-2 w-full">
                                             <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-500 group-hover:bg-background/80 transition-colors shrink-0">
                                                 <TableIcon className="h-4 w-4" />
                                             </div>
-                                            <span className="font-medium truncate text-sm flex-1" title={table}>{table}</span>
+                                            <div className="flex flex-col min-w-0 flex-1">
+                                                <span className="font-medium truncate text-sm" title={table.name}>{table.name}</span>
+                                                {table.comment && (
+                                                    <span className="text-xs text-muted-foreground truncate" title={table.comment}>
+                                                        {table.comment}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </ContextMenuTrigger>
                                 <ContextMenuContent className="w-48">
-                                    <ContextMenuItem onClick={() => handleSelectTable(table)}>
+                                    <ContextMenuItem onClick={() => handleSelectTable(table.name)}>
                                         <TableIcon className="mr-2 h-4 w-4" />
                                         {t('mysql.viewData', '查看数据')}
                                     </ContextMenuItem>
-                                    <ContextMenuItem onClick={() => handleViewTableSchema(table)}>
+                                    <ContextMenuItem onClick={() => handleViewTableSchema(table.name)}>
                                         <FileCode className="mr-2 h-4 w-4" />
                                         {t('mysql.viewSchema', '查看结构')}
                                     </ContextMenuItem>
-                                    <ContextMenuItem onClick={() => handleNewQueryTab(table)}>
+                                    <ContextMenuItem onClick={() => handleNewQueryTab(table.name)}>
                                         <Play className="mr-2 h-4 w-4" />
                                         {t('mysql.newQueryTab', '新建查询')}
                                     </ContextMenuItem>
                                     <ContextMenuSeparator />
-                                    <ContextMenuItem onClick={() => handleDeleteTable(table)} className="text-red-600 focus:text-red-600">
+                                    <ContextMenuItem onClick={() => handleDeleteTable(table.name)} className="text-red-600 focus:text-red-600">
                                         <Trash2 className="mr-2 h-4 w-4" />
                                         {t('mysql.deleteTable', '删除表')}
                                     </ContextMenuItem>
