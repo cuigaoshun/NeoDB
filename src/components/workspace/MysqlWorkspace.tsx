@@ -136,7 +136,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     const [isLoadingDDL, setIsLoadingDDL] = useState(false);
 
     // Filter related state
-    const [showFilter, setShowFilter] = useState(false);
+    const [showFilter, setShowFilter] = useState(!!tableName); // 有表名时默认打开筛选器
     const [, setWhereClause] = useState("");
     const [filterColumns, setFilterColumns] = useState<ColumnInfo[]>([]);
     const [isLoadingFilterColumns, setIsLoadingFilterColumns] = useState(false);
@@ -160,9 +160,35 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
             displaySql += ';';
 
             setSql(displaySql);
-            // 自动应用分页限制，避免默认显示太多
-            const processedSql = autoAddLimit(displaySql, pageSize, 0);
-            executeSql(processedSql);
+
+            // 先检测主键，然后应用排序和分页
+            const executeInitialQuery = async () => {
+                if (dbName && tableName) {
+                    // 先检测主键
+                    const keys = await detectPrimaryKeys();
+
+                    // 构建带排序的 SQL
+                    let queryToExecute = displaySql.trim();
+                    if (queryToExecute.endsWith(';')) {
+                        queryToExecute = queryToExecute.slice(0, -1).trim();
+                    }
+
+                    // 如果有主键，添加 ORDER BY 子句（主键倒序）
+                    if (keys.length > 0) {
+                        queryToExecute += ` ORDER BY \`${keys[0]}\` DESC`;
+                    }
+
+                    // 应用分页限制
+                    const processedSql = autoAddLimit(queryToExecute, pageSize, 0);
+                    executeSql(processedSql);
+                } else {
+                    // 没有表名，直接执行原始查询
+                    const processedSql = autoAddLimit(displaySql, pageSize, 0);
+                    executeSql(processedSql);
+                }
+            };
+
+            executeInitialQuery();
             initialSqlExecuted.current = true;
         }
     }, [initialSql]);
@@ -173,6 +199,35 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
             loadDDL();
         }
     }, [showDDL, dbName, tableName]);
+
+    // Load filter columns when filter is opened and columns are not loaded
+    useEffect(() => {
+        if (showFilter && filterColumns.length === 0 && dbName && tableName && !isLoadingFilterColumns) {
+            setIsLoadingFilterColumns(true);
+            const loadColumns = async () => {
+                try {
+                    const schemaSql = `SHOW COLUMNS FROM \`${dbName}\`.\`${tableName}\``;
+                    const res = await invoke<SqlResult>("execute_sql", {
+                        connectionId,
+                        sql: schemaSql,
+                        dbName
+                    });
+                    if (res.rows && res.rows.length > 0) {
+                        const cols: ColumnInfo[] = res.rows.map(row => ({
+                            name: (row.Field || row.field || Object.values(row)[0]) as string,
+                            type_name: (row.Type || row.type || Object.values(row)[1] || 'text') as string
+                        }));
+                        setFilterColumns(cols);
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch columns for filter:", err);
+                } finally {
+                    setIsLoadingFilterColumns(false);
+                }
+            };
+            loadColumns();
+        }
+    }, [showFilter, dbName, tableName]);
 
     // 辅助函数：自动为 SELECT 语句添加 LIMIT 和 OFFSET
     const autoAddLimit = (query: string, limit: number, offset: number): string => {

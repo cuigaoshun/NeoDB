@@ -74,8 +74,22 @@ export function FilterBuilder({ columns, onChange, onExecute, initialState, prim
     });
 
     // 排序状态
-    const [orderByField, setOrderByField] = useState<string>(primaryKeys.length > 0 ? primaryKeys[0] : '');
+    const [orderByField, setOrderByField] = useState<string>('');
     const [orderByDirection, setOrderByDirection] = useState<'ASC' | 'DESC'>('DESC');
+
+    // 当主键信息可用时，自动设置默认排序字段
+    useEffect(() => {
+        if (primaryKeys.length > 0 && !orderByField) {
+            setOrderByField(primaryKeys[0]);
+        }
+    }, [primaryKeys]);
+
+    // 当列信息可用且没有设置排序字段时，使用第一个列
+    useEffect(() => {
+        if (columns.length > 0 && !orderByField && primaryKeys.length === 0) {
+            setOrderByField(columns[0].name);
+        }
+    }, [columns]);
 
     // Notify parent of changes
     useEffect(() => {
