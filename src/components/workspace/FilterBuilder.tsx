@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Trash2, FolderPlus, Play } from "lucide-react";
+import { Plus, Trash2, FolderPlus, Play, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 
@@ -30,11 +30,17 @@ export interface FilterNode {
     nextLogic?: LogicOperator;
 }
 
+export interface OrderByClause {
+    field: string;
+    direction: 'ASC' | 'DESC';
+}
+
 interface FilterBuilderProps {
     columns: ColumnInfo[];
     onChange: (whereClause: string) => void;
-    onExecute?: (whereClause: string) => void;
+    onExecute?: (whereClause: string, orderBy?: string) => void;
     initialState?: FilterNode;
+    primaryKeys?: string[];
 }
 
 const OPERATORS = [
@@ -57,7 +63,7 @@ const isDateTimeType = (typeName: string): boolean => {
     return type.includes('DATE') || type.includes('TIME') || type.includes('TIMESTAMP');
 };
 
-export function FilterBuilder({ columns, onChange, onExecute, initialState }: FilterBuilderProps) {
+export function FilterBuilder({ columns, onChange, onExecute, initialState, primaryKeys = [] }: FilterBuilderProps) {
     const { t } = useTranslation();
     const [root, setRoot] = useState<FilterNode>(initialState || {
         id: 'root',
@@ -66,6 +72,10 @@ export function FilterBuilder({ columns, onChange, onExecute, initialState }: Fi
         logic: 'AND',
         children: []
     });
+
+    // 排序状态
+    const [orderByField, setOrderByField] = useState<string>(primaryKeys.length > 0 ? primaryKeys[0] : '');
+    const [orderByDirection, setOrderByDirection] = useState<'ASC' | 'DESC'>('DESC');
 
     // Notify parent of changes
     useEffect(() => {
@@ -197,34 +207,106 @@ export function FilterBuilder({ columns, onChange, onExecute, initialState }: Fi
                 <div className="flex flex-col gap-2">
                     {/* Root controls or standard add buttons if empty */}
                     {node.children && node.children.length === 0 && (
-                        <div className="flex gap-2 items-center">
+                        <div className="flex gap-2 items-center flex-wrap">
                             <Button size="sm" variant="outline" onClick={() => addNode(node.id, 'condition')} className="text-xs h-7">
                                 <Plus className="h-3 w-3 mr-1" /> {t('common.addCondition', 'Add Condition')}
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => addNode(node.id, 'group')} className="text-xs h-7">
                                 <FolderPlus className="h-3 w-3 mr-1" /> {t('common.addGroup', 'Add Group')}
                             </Button>
+
+                            {/* 排序选项 - 与添加按钮在同一行 */}
+                            {columns.length > 0 && (
+                                <>
+                                    <div className="h-4 w-[1px] bg-border mx-1"></div>
+                                    <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+                                    <span className="text-xs text-muted-foreground">{t('common.orderBy', '排序')}:</span>
+                                    <Select value={orderByField} onValueChange={setOrderByField}>
+                                        <SelectTrigger className="w-[150px] h-7 text-xs">
+                                            <SelectValue placeholder={t('common.selectField', '选择字段')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {columns.map(col => (
+                                                <SelectItem key={col.name} value={col.name}>{col.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Select value={orderByDirection} onValueChange={(val) => setOrderByDirection(val as 'ASC' | 'DESC')}>
+                                        <SelectTrigger className="w-[80px] h-7 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ASC">{t('common.ascending', '升序')}</SelectItem>
+                                            <SelectItem value="DESC">{t('common.descending', '降序')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    {onExecute && (
+                                        <Button
+                                            size="sm"
+                                            onClick={() => {
+                                                const whereClause = generateWhereClause(root);
+                                                const orderByClause = orderByField ? `${orderByField} ${orderByDirection}` : '';
+                                                onExecute(whereClause, orderByClause);
+                                            }}
+                                            className="text-xs h-7 bg-blue-600 hover:bg-blue-700 text-white"
+                                        >
+                                            <Play className="h-3 w-3 mr-1" /> {t('common.apply', '应用')}
+                                        </Button>
+                                    )}
+                                </>
+                            )}
                         </div>
                     )}
                     {node.children?.map((child, i) => renderNode(child, 0, i === node.children!.length - 1, node.children!))}
                     {/* Root add buttons at bottom if not empty */}
                     {node.children && node.children.length > 0 && (
-                        <div className="flex gap-2 items-center mt-2 border-t pt-2 border-dashed">
+                        <div className="flex gap-2 items-center mt-2 border-t pt-2 border-dashed flex-wrap">
                             <Button size="sm" variant="ghost" onClick={() => addNode(node.id, 'condition')} className="text-xs h-7">
                                 <Plus className="h-3 w-3 mr-1" /> {t('common.addCondition', 'Add Condition')}
                             </Button>
                             <Button size="sm" variant="ghost" onClick={() => addNode(node.id, 'group')} className="text-xs h-7">
                                 <FolderPlus className="h-3 w-3 mr-1" /> {t('common.addGroup', 'Add Group')}
                             </Button>
-                            {onExecute && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => onExecute(generateWhereClause(root))}
-                                    className="text-xs h-7 border-blue-500 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-950"
-                                >
-                                    <Play className="h-3 w-3 mr-1" /> {t('common.filter', 'Filter')}
-                                </Button>
+
+                            {/* 排序选项 - 与添加按钮在同一行 */}
+                            {columns.length > 0 && (
+                                <>
+                                    <div className="h-4 w-[1px] bg-border mx-1"></div>
+                                    <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+                                    <span className="text-xs text-muted-foreground">{t('common.orderBy', '排序')}:</span>
+                                    <Select value={orderByField} onValueChange={setOrderByField}>
+                                        <SelectTrigger className="w-[150px] h-7 text-xs">
+                                            <SelectValue placeholder={t('common.selectField', '选择字段')} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {columns.map(col => (
+                                                <SelectItem key={col.name} value={col.name}>{col.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Select value={orderByDirection} onValueChange={(val) => setOrderByDirection(val as 'ASC' | 'DESC')}>
+                                        <SelectTrigger className="w-[80px] h-7 text-xs">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ASC">{t('common.ascending', '升序')}</SelectItem>
+                                            <SelectItem value="DESC">{t('common.descending', '降序')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    {onExecute && (
+                                        <Button
+                                            size="sm"
+                                            onClick={() => {
+                                                const whereClause = generateWhereClause(root);
+                                                const orderByClause = orderByField ? `${orderByField} ${orderByDirection}` : '';
+                                                onExecute(whereClause, orderByClause);
+                                            }}
+                                            className="text-xs h-7 bg-blue-600 hover:bg-blue-700 text-white"
+                                        >
+                                            <Play className="h-3 w-3 mr-1" /> {t('common.apply', '应用')}
+                                        </Button>
+                                    )}
+                                </>
                             )}
                         </div>
                     )}

@@ -101,7 +101,14 @@ const resources = {
         "combineLogic": "Combine top-level items with:",
         "localFilter": "Filter...",
         "noFilterResults": "No matching results",
-        "group": "Group"
+        "group": "Group",
+        "orderBy": "Order By",
+        "selectField": "Select Field",
+        "ascending": "ASC",
+        "descending": "DESC",
+        "select": "Select",
+        "deselect": "Deselect",
+        "apply": "Apply"
       },
       "menu": {
         "home": "Home",
@@ -360,7 +367,14 @@ const resources = {
         "combineLogic": "顶层组合逻辑：",
         "localFilter": "筛选...",
         "noFilterResults": "无匹配结果",
-        "group": "组"
+        "group": "组",
+        "orderBy": "排序",
+        "selectField": "选择字段",
+        "ascending": "升序",
+        "descending": "降序",
+        "select": "选中",
+        "deselect": "取消选中",
+        "apply": "应用"
       },
       "menu": {
         "home": "首页",

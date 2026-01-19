@@ -980,12 +980,16 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                 <div className="px-4 py-1 bg-muted/20">
                     <FilterBuilder
                         columns={filterColumns}
+                        primaryKeys={primaryKeys}
                         onChange={setWhereClause}
-                        onExecute={(clause) => {
+                        onExecute={(clause, orderBy) => {
                             if (!dbName || !tableName) return;
                             let query = `SELECT * FROM \`${dbName}\`.\`${tableName}\``;
                             if (clause) {
                                 query += ` WHERE ${clause}`;
+                            }
+                            if (orderBy) {
+                                query += ` ORDER BY \`${orderBy.split(' ')[0]}\` ${orderBy.split(' ')[1]}`;
                             }
                             const processedSql = autoAddLimit(query + ';', pageSize, 0);
                             setCurrentPage(0);
@@ -1024,6 +1028,28 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                             <Table style={{ tableLayout: 'fixed' }}>
                                                 <TableHeader className="sticky top-0 bg-muted/50">
                                                     <TableRow>
+                                                        {/* 复选框列 - 只在有选中行时显示 */}
+                                                        {selectedRowIndices.length > 0 && (
+                                                            <TableHead className="w-[50px] min-w-[50px]">
+                                                                <div className="flex items-center justify-center">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        className="cursor-pointer"
+                                                                        checked={filteredRows.length > 0 && filteredRows.every(row => selectedRowIndices.includes(result.rows.indexOf(row)))}
+                                                                        onChange={(e) => {
+                                                                            if (e.target.checked) {
+                                                                                // 全选
+                                                                                const allIndices = filteredRows.map(row => result.rows.indexOf(row));
+                                                                                setSelectedRowIndices(allIndices);
+                                                                            } else {
+                                                                                // 取消全选
+                                                                                setSelectedRowIndices([]);
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </TableHead>
+                                                        )}
                                                         {result.columns.map((col, i) => (
                                                             <TableHead key={i} className="whitespace-nowrap w-[200px] min-w-[200px]">
                                                                 <div className="flex items-center justify-between">
@@ -1087,6 +1113,11 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                     {/* 新增行 */}
                                                     {newRows.map((row, rowIdx) => (
                                                         <TableRow key={`new-${rowIdx}`} className="bg-blue-50/50 dark:bg-blue-950/20">
+                                                            {/* 新增行的复选框列 - 只在有选中行时显示 */}
+                                                            {selectedRowIndices.length > 0 && (
+                                                                <TableCell className="w-[50px] min-w-[50px]">
+                                                                </TableCell>
+                                                            )}
                                                             {result.columns.map((col, colIdx) => (
                                                                 <TableCell key={colIdx} className="whitespace-nowrap w-[200px] min-w-[200px]">
                                                                     {editingCell?.rowIdx === rowIdx && editingCell?.colName === col.name && editingCell?.isNewRow ? (
@@ -1143,11 +1174,25 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                         return (
                                                             <TableRow
                                                                 key={displayIdx}
-                                                                className={cn(
-                                                                    "hover:bg-muted/50",
-                                                                    isRowSelected && "bg-blue-100 dark:bg-blue-900/40"
-                                                                )}
+                                                                className="hover:bg-muted/50"
                                                             >
+                                                                {/* 复选框列 - 只在有选中行时显示 */}
+                                                                {selectedRowIndices.length > 0 && (
+                                                                    <TableCell className="w-[50px] min-w-[50px] text-center">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            className="cursor-pointer"
+                                                                            checked={isRowSelected}
+                                                                            onChange={(e) => {
+                                                                                if (e.target.checked) {
+                                                                                    setSelectedRowIndices([...selectedRowIndices, originalRowIdx]);
+                                                                                } else {
+                                                                                    setSelectedRowIndices(selectedRowIndices.filter(idx => idx !== originalRowIdx));
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    </TableCell>
+                                                                )}
                                                                 {result.columns.map((col, colIdx) => (
                                                                     <TableCell key={colIdx} className="p-0 whitespace-nowrap w-[200px] min-w-[200px]">
                                                                         {editingCell?.rowIdx === originalRowIdx && editingCell?.colName === col.name && !editingCell?.isNewRow ? (
@@ -1278,7 +1323,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                     })}
                                                     {filteredRows.length === 0 && newRows.length === 0 && (
                                                         <TableRow>
-                                                            <TableCell colSpan={result.columns.length || 1} className="text-center h-24 text-muted-foreground">
+                                                            <TableCell colSpan={selectedRowIndices.length > 0 ? (result.columns.length || 1) + 1 : (result.columns.length || 1)} className="text-center h-24 text-muted-foreground">
                                                                 {hasActiveInlineFilters ? t('common.noFilterResults', '无匹配结果') : t('common.noResults', 'No results')}
                                                             </TableCell>
                                                         </TableRow>
