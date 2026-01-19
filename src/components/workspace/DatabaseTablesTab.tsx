@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/context-menu";
 import { addCommandToConsole } from "@/components/ui/CommandConsole";
 import { CreateTableDialog } from "@/components/workspace/CreateTableDialog";
+import { toast, confirm } from "@/hooks/use-toast";
 
 interface SqlResult {
     rows: Record<string, any>[];
@@ -41,7 +42,7 @@ interface DatabaseTablesTabProps {
     dbType: string;
 }
 
-export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTablesTabProps) {
+export function DatabaseTablesTab({ connectionId, dbName, dbType }: DatabaseTablesTabProps) {
     const { t } = useTranslation();
     const addTab = useAppStore(state => state.addTab);
     const connection = useAppStore(state => state.connections.find(c => c.id === connectionId));
@@ -50,7 +51,7 @@ export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTable
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
-    
+
     // Create table dialog state
     const [showCreateTableDialog, setShowCreateTableDialog] = useState(false);
 
@@ -63,10 +64,10 @@ export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTable
 
         setIsLoading(true);
         setError(null);
-        
+
         const startTime = Date.now();
         let command = "";
-        
+
         try {
             let tableList: TableInfo[] = [];
 
@@ -93,7 +94,7 @@ export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTable
                         // keys might be case sensitive depending on driver, usually returned as is from DB
                         const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name') || Object.keys(row)[0];
                         const commentKey = Object.keys(row).find(k => k.toLowerCase() === 'comment');
-                        
+
                         return {
                             name: row[nameKey] as string,
                             comment: commentKey ? row[commentKey] as string : undefined
@@ -130,7 +131,7 @@ export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTable
         if (!connection) return;
 
         const newTabId = `table-${connection.id}-${dbName}-${table}`;
-        
+
         // 检查 tab 是否已存在（useAppStore.addTab 会处理激活逻辑）
         addTab({
             id: newTabId,
@@ -147,7 +148,7 @@ export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTable
 
     const handleViewTableSchema = (table: string) => {
         if (!connection) return;
-        
+
         const schemaTabId = `schema-${connection.id}-${dbName}-${table}`;
         addTab({
             id: schemaTabId,
@@ -169,7 +170,7 @@ export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTable
         const initialSql = table
             ? `SELECT * FROM \`${dbName}\`.\`${table}\`;`
             : `-- ${t('mysql.newQueryTab', '新建查询')}\nSELECT * FROM \`${dbName}\`.table_name;`;
-        
+
         addTab({
             id: queryTabId,
             title: table ? `${table} - Query` : `${dbName} - Query`,
@@ -183,10 +184,14 @@ export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTable
 
     const handleDeleteTable = async (table: string) => {
         if (!connection) return;
-        
-        if (!confirm(t('mysql.confirmDeleteTable', { table: table }))) {
-            return;
-        }
+
+        const confirmed = await confirm({
+            title: t('common.confirmDeletion'),
+            description: t('mysql.confirmDeleteTable', { table }),
+            variant: 'destructive'
+        });
+
+        if (!confirmed) return;
 
         try {
             const sql = `DROP TABLE \`${dbName}\`.\`${table}\``;
@@ -208,7 +213,11 @@ export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTable
             await loadTables();
         } catch (err: any) {
             console.error("Failed to drop table:", err);
-            alert(t('common.error') + ': ' + String(err));
+            toast({
+                variant: "destructive",
+                title: t('common.error'),
+                description: t('common.error') + ': ' + String(err)
+            });
 
             addCommandToConsole({
                 databaseType: connection.db_type as any,
@@ -220,8 +229,8 @@ export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTable
         }
     };
 
-    const filteredTables = tables.filter(t => 
-        t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const filteredTables = tables.filter(t =>
+        t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (t.comment && t.comment.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
@@ -236,7 +245,7 @@ export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTable
                 <div className="flex items-center gap-2 flex-1">
                     <div className="relative max-w-sm flex-1">
                         <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
+                        <Input
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             placeholder={t('common.searchTables', '搜索表...')}
@@ -248,19 +257,19 @@ export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTable
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8" 
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
                         onClick={() => loadTables()}
                         title={t('common.refresh', '刷新')}
                     >
                         <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
                     </Button>
                     {dbType === 'mysql' && (
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
+                        <Button
+                            variant="outline"
+                            size="sm"
                             className="h-8 gap-1"
                             onClick={() => setShowCreateTableDialog(true)}
                         >
@@ -294,7 +303,7 @@ export function DatabaseTablesTab({connectionId, dbName, dbType }: DatabaseTable
                         {filteredTables.map(table => (
                             <ContextMenu key={table.name}>
                                 <ContextMenuTrigger>
-                                    <div 
+                                    <div
                                         className="group flex flex-col items-start p-2 rounded-lg bg-card hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors relative"
                                         onClick={() => handleSelectTable(table.name)}
                                     >

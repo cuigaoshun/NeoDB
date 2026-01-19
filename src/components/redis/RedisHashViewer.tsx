@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { addCommandToConsole } from "@/components/ui/CommandConsole";
+import { confirm } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, Pencil, Trash2, Check, X } from "lucide-react";
@@ -94,7 +96,12 @@ export function RedisHashViewer({
   };
 
   const handleDelete = async (field: string) => {
-    if (!confirm(t('redis.deleteConfirm'))) return;
+    const confirmed = await confirm({
+      title: t('common.confirmDeletion'),
+      description: t('redis.deleteConfirm'),
+      variant: 'destructive'
+    });
+    if (!confirmed) return;
 
     try {
       await invoke("execute_redis_command", {
@@ -144,7 +151,7 @@ export function RedisHashViewer({
             {pairs.map((pair, i) => {
               const isEditing = inlineEditField === pair.field;
               return (
-                <TableRow key={`${pair.field}-${i}`} className="group hover:bg-muted/50">
+                <TableRow key={`${pair.field} -${i} `} className="group hover:bg-muted/50">
                   <TableCell className="font-mono text-xs align-top font-medium text-blue-600 dark:text-blue-400">
                     {pair.field}
                   </TableCell>

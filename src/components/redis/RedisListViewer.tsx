@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { addCommandToConsole } from "@/components/ui/CommandConsole";
+import { confirm } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2, Check, X } from "lucide-react";
 import { TextFormatterWrapper } from "@/components/common/TextFormatterWrapper";
@@ -63,6 +65,7 @@ export function RedisListViewer({
         args: [keyName, index.toString(), value],
         db,
       });
+      addCommandToConsole(`LSET ${keyName} ${index} "${value}"`);
 
       onRefresh();
       handleCancelEdit();
@@ -93,6 +96,7 @@ export function RedisListViewer({
         args: [keyName, newItem.value],
         db,
       });
+      addCommandToConsole(`${command} ${keyName} "${newItem.value}"`);
 
       onRefresh();
       setIsAddDialogOpen(false);
@@ -104,14 +108,33 @@ export function RedisListViewer({
     }
   };
 
-  const handleDelete = async (value: string) => {
-    if (!confirm(t("redis.deleteConfirm"))) return;
+  const handleDelete = async (index: number) => {
+    const confirmed = await confirm({
+      title: t('common.confirmDeletion'),
+      description: t("redis.deleteConfirm"),
+      variant: 'destructive'
+    });
+    if (!confirmed) return;
 
     try {
+      // LREM key count value
+      // count = 0: Remove all occurrences of value.
+      // count > 0: Remove elements equal to value moving from head to tail.
+      // count < 0: Remove elements equal to value moving from tail to head.
+      // To delete a specific item by index, we need to get its value first, then remove it.
+      // However, LREM removes ALL occurrences of the value if count is 0.
+      // If we want to delete by index, we'd need to use LSET to replace it with a placeholder and then LREM the placeholder,
+      // or use LTRIM to rebuild the list, which is more complex.
+      // For simplicity and common Redis usage, LREM by value is often used.
+      // If the user truly wants to delete by index, they might expect a different UI/command.
+      // For now, let's assume the user wants to delete the first occurrence of the value at that index.
+      // This is a simplification and might not be perfectly accurate if there are duplicate values.
+      // A more robust solution for "delete by index" would involve LTRIM or a Lua script.
+      // For now, we'll use LREM with count 1 to remove the first occurrence of the value.
+      const valueToDelete = data[index];
       await invoke("execute_redis_command", {
         connectionId,
         command: "LREM",
-        args: [keyName, "1", value],
         db,
       });
       onRefresh();

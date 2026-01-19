@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Connection, useAppStore } from "@/store/useAppStore";
+import { confirm } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
     Database,
@@ -353,9 +354,12 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
     };
 
     const handleDeleteTable = async (dbName: string, tableName: string) => {
-        if (!confirm(t('mysql.confirmDeleteTable', { table: tableName }))) {
-            return;
-        }
+        const confirmed = await confirm({
+            title: t('common.confirmDeletion'),
+            description: t('mysql.confirmDeleteTable', { table: tableName }),
+            variant: 'destructive'
+        });
+        if (!confirmed) return;
 
         try {
             const sql = `DROP TABLE \`${dbName}\`.\`${tableName}\``;

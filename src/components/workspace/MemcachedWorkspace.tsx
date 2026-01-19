@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { addCommandToConsole } from "@/components/ui/CommandConsole";
 import { useAppStore } from "@/store/useAppStore";
 import { TextFormatterWrapper } from "@/components/common/TextFormatterWrapper";
+import { toast, confirm } from "@/hooks/use-toast";
 
 export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: { tabId: string; name: string; connectionId: number; savedResult?: any }) {
     const { t } = useTranslation();
@@ -81,7 +82,7 @@ export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: {
             });
         } catch (error) {
             console.error("Failed to fetch value", error);
-            setSelectedValue("Error fetching value: " + error);
+            setSelectedValue(t('common.errorFetching') + ": " + error);
 
             addCommandToConsole({
                 databaseType: 'memcached',
@@ -97,7 +98,14 @@ export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: {
 
     const handleDelete = async () => {
         if (!searchKey) return;
-        if (!confirm(t('memcached.deleteConfirm', { key: searchKey }))) return;
+
+        const confirmed = await confirm({
+            title: t('common.confirmDeletion'),
+            description: t('memcached.deleteConfirm', { key: searchKey }),
+            variant: 'destructive'
+        });
+
+        if (!confirmed) return;
 
         const startTime = Date.now();
 
@@ -106,7 +114,7 @@ export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: {
                 connectionId,
                 key: searchKey
             });
-            setSelectedValue("(deleted)");
+            setSelectedValue(t('common.deleted'));
 
             addCommandToConsole({
                 databaseType: 'memcached',
@@ -116,7 +124,11 @@ export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: {
             });
         } catch (error) {
             console.error("Failed to delete key", error);
-            alert("Failed to delete key: " + error);
+            toast({
+                variant: "destructive",
+                title: t('common.error'),
+                description: t('common.failedToDelete') + ": " + error
+            });
 
             addCommandToConsole({
                 databaseType: 'memcached',
@@ -225,7 +237,7 @@ export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: {
                                 <TextFormatterWrapper
                                     content={selectedValue}
                                     readonly
-                                    title="Format value"
+                                    title={t('common.formatValue')}
                                 >
                                     <div className="bg-muted/30 rounded-md p-4 border overflow-x-auto cursor-context-menu">
                                         <pre className="font-mono text-sm whitespace-pre-wrap break-all pr-12">

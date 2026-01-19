@@ -21,6 +21,7 @@ import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { useAppStore } from "@/store/useAppStore";
 import { addCommandToConsole } from "@/components/ui/CommandConsole";
+import { confirm } from "@/hooks/use-toast";
 
 interface ColumnInfo {
     name: string;
@@ -314,7 +315,12 @@ export function SqliteWorkspace({ tabId, name, connectionId, initialSql, savedSq
     const handleRowDelete = async () => {
         if (!result || !tableName || selectedRowIndices.length === 0) return;
 
-        if (!confirm(t('common.confirmDeleteRows', '确定要删除选中的 {{count}} 行吗？', { count: selectedRowIndices.length }))) return;
+        const confirmed = await confirm({
+            title: t('common.confirmDeletion'),
+            description: t('common.confirmDeleteRows', { count: selectedRowIndices.length }),
+            variant: 'destructive'
+        });
+        if (!confirmed) return;
 
         try {
             // 批量删除

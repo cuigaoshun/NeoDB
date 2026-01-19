@@ -528,7 +528,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
         });
       } catch (error) {
         console.error("Failed to fetch value", error);
-        setSelectedValue("Error fetching value");
+        setSelectedValue(t('common.errorFetching'));
 
         // Log error command
         addCommandToConsole({
@@ -576,8 +576,8 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
 
   const formatTTL = (seconds?: number) => {
     if (seconds === undefined || seconds === null) return "-";
-    if (seconds === -1) return "No limit";
-    if (seconds < 0) return "Expired";
+    if (seconds === -1) return t('common.noLimit');
+    if (seconds < 0) return t('common.expired');
 
     const d = Math.floor(seconds / (3600 * 24));
     if (d > 0) return `${d}d`;
@@ -828,7 +828,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
                 <div className="bg-muted/50 p-4 rounded-full">
                   <Info className="w-8 h-8 opacity-50" />
                 </div>
-                <p>Select a key to view details</p>
+                <p>{t('common.selectKeyToView')}</p>
               </div>
             )}
           </ResizablePanel>
@@ -845,17 +845,17 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogTitle>{t('common.confirmDeletion')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the key <span className="font-mono font-bold text-foreground">{selectedKey}</span>? This action cannot be undone.
+              {t('common.confirmDeleteKey', { key: selectedKey })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleDeleteKey}>
-              Delete
+              {t('common.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -891,7 +891,8 @@ function ValueViewer({
   onRefresh: () => void;
   observerTarget: React.RefObject<HTMLDivElement | null>;
 }) {
-  if (!type) return <div className="text-muted-foreground italic p-4">Select a key to view details</div>;
+  const { t } = useTranslation();
+  if (!type) return <div className="text-muted-foreground italic p-4">{t('common.selectKeyToView')}</div>;
 
   if (type === "string") {
     return (

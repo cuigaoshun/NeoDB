@@ -36,6 +36,7 @@ import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { useIsDarkTheme } from "@/hooks/useIsDarkTheme";
 import { useAppStore } from "@/store/useAppStore";
 import { addCommandToConsole } from "@/components/ui/CommandConsole";
+import { confirm } from "@/hooks/use-toast";
 
 interface ColumnInfo {
     name: string;
@@ -481,7 +482,12 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     const handleRowDelete = async () => {
         if (!result || !dbName || !tableName || selectedRowIndices.length === 0) return;
 
-        if (!confirm(t('common.confirmDeleteRows', '确定要删除选中的 {{count}} 行吗？', { count: selectedRowIndices.length }))) return;
+        const confirmed = await confirm({
+            title: t('common.confirmDeletion'),
+            description: t('common.confirmDeleteRows', { count: selectedRowIndices.length }),
+            variant: 'destructive'
+        });
+        if (!confirmed) return;
 
         try {
             // 批量删除
@@ -543,7 +549,12 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     const handleDeleteSingleRow = async (rowIdx: number) => {
         if (!result || !dbName || !tableName) return;
 
-        if (!confirm(t('common.confirmDeleteRow', '确定要删除这一行吗？'))) return;
+        const confirmed = await confirm({
+            title: t('common.confirmDeletion'),
+            description: t('common.confirmDeleteRow'),
+            variant: 'destructive'
+        });
+        if (!confirmed) return;
 
         try {
             const row = result.rows[rowIdx];
@@ -656,8 +667,13 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     };
 
     // 取消所有修改（清空新增行）
-    const handleCancelChanges = () => {
-        if (confirm(t('common.confirmCancelChanges', '确定要放弃所有新增行吗？'))) {
+    const handleCancelChanges = async () => {
+        const confirmed = await confirm({
+            title: t('common.confirmDeletion'),
+            description: t('common.confirmCancelChanges'),
+            variant: 'default'
+        });
+        if (confirmed) {
             setNewRows([]);
         }
     };

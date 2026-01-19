@@ -20,6 +20,7 @@ import { ConnectionForm } from "../connection/ConnectionForm";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ExportConnectionsDialog } from "../connection/ExportConnectionsDialog";
 import { ImportConnectionsDialog } from "../connection/ImportConnectionsDialog";
+import { toast } from "@/hooks/use-toast";
 
 export function ConnectionManager() {
     const { t } = useTranslation();
@@ -100,7 +101,11 @@ export function ConnectionManager() {
             setIsNewConnOpen(false);
         } catch (error) {
             console.error("Failed to create connection:", error);
-            alert("Failed to create connection: " + error);
+            toast({
+                variant: "destructive",
+                title: t('common.error'),
+                description: t('common.failedToCreate') + " " + t('common.connection') + ": " + error
+            });
         }
     };
 
@@ -116,7 +121,11 @@ export function ConnectionManager() {
             setEditingConn(null);
         } catch (error) {
             console.error("Failed to update connection:", error);
-            alert("Failed to update connection: " + error);
+            toast({
+                variant: "destructive",
+                title: t('common.error'),
+                description: t('common.failedToUpdate') + " " + t('common.connection') + ": " + error
+            });
         }
     };
 
@@ -186,12 +195,12 @@ export function ConnectionManager() {
                             </DialogContent>
                         </Dialog>
                         <div className="flex gap-2">
-                             <Button variant="outline" size="icon" onClick={() => setImportOpen(true)} title={t('settings.importConnections')}>
-                                 <Download className="h-4 w-4" />
-                             </Button>
-                             <Button variant="outline" size="icon" onClick={() => setExportOpen(true)} title={t('settings.exportConnections')}>
-                                 <Upload className="h-4 w-4" />
-                             </Button>
+                            <Button variant="outline" size="icon" onClick={() => setImportOpen(true)} title={t('settings.importConnections')}>
+                                <Download className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="icon" onClick={() => setExportOpen(true)} title={t('settings.exportConnections')}>
+                                <Upload className="h-4 w-4" />
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -321,13 +330,13 @@ export function ConnectionManager() {
                 </DialogContent>
             </Dialog>
 
-            <ExportConnectionsDialog 
-                open={exportOpen} 
-                onOpenChange={setExportOpen} 
+            <ExportConnectionsDialog
+                open={exportOpen}
+                onOpenChange={setExportOpen}
             />
-            
-            <ImportConnectionsDialog 
-                open={importOpen} 
+
+            <ImportConnectionsDialog
+                open={importOpen}
                 onOpenChange={setImportOpen}
                 onImportSuccess={fetchConnections}
             />

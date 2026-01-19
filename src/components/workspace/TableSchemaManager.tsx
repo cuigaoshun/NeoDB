@@ -17,6 +17,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { addCommandToConsole } from "@/components/ui/CommandConsole";
+import { confirm } from "@/hooks/use-toast";
 import { ColumnEditor, ColumnDefinition } from "@/components/workspace/ColumnEditor";
 
 interface ColumnInfo {
@@ -136,9 +137,12 @@ export function TableSchemaManager({ connectionId, dbName, tableName, onRefresh 
     };
 
     const handleDeleteColumn = async (columnName: string) => {
-        if (!confirm(t('mysql.confirmDeleteColumn', { column: columnName }))) {
-            return;
-        }
+        const confirmed = await confirm({
+            title: t('common.confirmDeletion'),
+            description: t('mysql.confirmDeleteColumn', { column: columnName }),
+            variant: 'destructive'
+        });
+        if (!confirmed) return;
 
         try {
             const sql = `ALTER TABLE \`${dbName}\`.\`${tableName}\` DROP COLUMN \`${columnName}\``;
@@ -179,9 +183,12 @@ export function TableSchemaManager({ connectionId, dbName, tableName, onRefresh 
             return;
         }
 
-        if (!confirm(t('mysql.confirmDeleteIndex', { index: indexName }))) {
-            return;
-        }
+        const confirmed = await confirm({
+            title: t('common.confirmDeletion'),
+            description: t('mysql.confirmDeleteIndex', { index: indexName }),
+            variant: 'destructive'
+        });
+        if (!confirmed) return;
 
         try {
             const sql = `ALTER TABLE \`${dbName}\`.\`${tableName}\` DROP INDEX \`${indexName}\``;

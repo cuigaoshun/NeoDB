@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { addCommandToConsole } from "@/components/ui/CommandConsole";
+import { confirm } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, Pencil, Trash2, Check, X } from "lucide-react";
 import { TextFormatterWrapper } from "@/components/common/TextFormatterWrapper";
@@ -123,7 +124,12 @@ export function RedisZSetViewer({
   };
 
   const handleDelete = async (member: string) => {
-    if (!confirm(t("redis.deleteConfirm"))) return;
+    const confirmed = await confirm({
+      title: t('common.confirmDeletion'),
+      description: t("redis.deleteConfirm"),
+      variant: 'destructive'
+    });
+    if (!confirmed) return;
     try {
       await invoke("execute_redis_command", {
         connectionId,
