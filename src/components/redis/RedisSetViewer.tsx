@@ -158,7 +158,7 @@ export function RedisSetViewer({
         <div className="text-xs text-muted-foreground">
           {t('redis.total')}: {data.length}{hasMore ? "+" : ""}
         </div>
-        <Button size="sm" onClick={() => setIsAddDialogOpen(true)} className="gap-1">
+        <Button size="sm" onClick={() => setIsAddDialogOpen(true)} className="gap-1 bg-blue-600 hover:bg-blue-500 text-white shadow-sm">
           <Plus className="h-4 w-4" /> {t('redis.addMember')}
         </Button>
       </div>
@@ -287,6 +287,7 @@ export function RedisSetViewer({
             <Button
               onClick={handleAdd}
               disabled={!newMember || isSubmitting}
+              className="bg-blue-600 hover:bg-blue-500 text-white"
             >
               {isSubmitting ? t('redis.adding') : t('redis.addMember')}
             </Button>

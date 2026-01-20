@@ -318,7 +318,7 @@ const resources = {
         "connect": "连接",
         "save": "保存",
         "cancel": "取消",
-        "searchPlaceholder": "搜索连接...",
+        "searchPlaceholder": "搜索键...",
         "searchExplorer": "搜索库/表...",
         "noConnectionsFound": "未找到连接。",
         "confirmDelete": "确定要删除此连接吗？",

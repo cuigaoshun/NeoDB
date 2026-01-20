@@ -102,7 +102,7 @@ export function RedisStringViewer({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="raw" className="text-xs font-semibold">
-                Original Data
+                {t('redis.originalData', 'Original Data')}
               </SelectItem>
               {availableFormats.filter(f => f !== 'raw').map((format) => (
                 <SelectItem key={format} value={format} className="text-xs">
@@ -112,7 +112,7 @@ export function RedisStringViewer({
             </SelectContent>
           </Select>
         </div>
-        <Button size="sm" onClick={handleSave} disabled={isSubmitting} className="h-8 gap-1">
+        <Button size="sm" onClick={handleSave} disabled={isSubmitting} className="h-8 gap-1 bg-blue-600 hover:bg-blue-500 text-white shadow-sm">
           <Save className="h-4 w-4" />
           {isSubmitting ? t('redis.saving') : t('redis.saveChanges')}
         </Button>

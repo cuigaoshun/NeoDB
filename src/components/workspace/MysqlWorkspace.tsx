@@ -2,9 +2,10 @@ import { useTranslation } from "react-i18next";
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
-import { Play, Loader2, FileCode, Hash, Type, Calendar, Binary, Trash2, Plus, Copy, Check, X, ChevronLeft, ChevronRight, Filter, Pencil, Wand2 } from "lucide-react";
+import { Play, Loader2, FileCode, Hash, Type, Calendar, Binary, Trash2, Plus, Copy, Check, X, ChevronLeft, ChevronRight, Filter, Pencil, Wand2, Eye } from "lucide-react";
 import { FilterBuilder } from "@/components/workspace/FilterBuilder";
 import { TextFormatterDialog } from "@/components/common/TextFormatterDialog";
+import { RowViewerDialog } from "@/components/common/RowViewerDialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import {
@@ -81,6 +82,10 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     const [formatterReadOnly, setFormatterReadOnly] = useState(false);
     const [formatterOnSave, setFormatterOnSave] = useState<((val: string) => void) | undefined>(undefined);
     const [formatterTitle, setFormatterTitle] = useState('');
+
+    // 行查看对话框状态
+    const [rowViewerOpen, setRowViewerOpen] = useState(false);
+    const [viewingRow, setViewingRow] = useState<Record<string, any> | null>(null);
 
 
     // 分页状态
@@ -1316,6 +1321,16 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
 
                                                                                     <ContextMenuItem
                                                                                         onClick={() => {
+                                                                                            setViewingRow(row);
+                                                                                            setRowViewerOpen(true);
+                                                                                        }}
+                                                                                    >
+                                                                                        <Eye className="h-3 w-3 mr-2" />
+                                                                                        {t('common.viewRow', '查看行')}
+                                                                                    </ContextMenuItem>
+
+                                                                                    <ContextMenuItem
+                                                                                        onClick={() => {
                                                                                             const content = typeof row[col.name] === 'object' && row[col.name] !== null ? JSON.stringify(row[col.name]) : String(row[col.name]);
                                                                                             setFormatterContent(content);
                                                                                             setFormatterTitle(`Format value: ${col.name}`);
@@ -1515,6 +1530,14 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                 title={formatterTitle}
                 readonly={formatterReadOnly}
                 onSave={formatterOnSave}
+            />
+
+            <RowViewerDialog
+                open={rowViewerOpen}
+                onOpenChange={setRowViewerOpen}
+                row={viewingRow}
+                columns={result?.columns || []}
+                title={t('common.viewRow', '查看行数据')}
             />
         </div>
     );

@@ -202,7 +202,7 @@ export function RedisAddKeyDialog({
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                         {t('common.cancel')}
                     </Button>
-                    <Button onClick={handleSave} disabled={isSubmitting}>
+                    <Button onClick={handleSave} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-500 text-white">
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {t('common.save')}
                     </Button>

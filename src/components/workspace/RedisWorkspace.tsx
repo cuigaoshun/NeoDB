@@ -1,4 +1,4 @@
-import { Search, Plus, X, Trash2, Info } from "lucide-react";
+import { Search, Plus, Trash2, Info } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { invoke } from "@tauri-apps/api/core";
@@ -438,15 +438,37 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectionId, db, filter]);
 
-  // Debounce value filter for complex types
+  // Debounce value filter for complex types and handle key selection
+  const prevSelectedKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
+    // Determine if selectedKey actually changed
+    const isKeyChanged = prevSelectedKeyRef.current !== selectedKey;
+    prevSelectedKeyRef.current = selectedKey;
+
+    if (!selectedKey) return;
+
     const currentKeyItem = keys.find((k) => k.key === selectedKey);
-    if (selectedKey && currentKeyItem &&
-      (currentKeyItem.type === "hash" || currentKeyItem.type === "set" || currentKeyItem.type === "zset")) {
-      const timer = setTimeout(() => {
+    if (!currentKeyItem) return;
+
+    if (currentKeyItem.type === "list") {
+      if (isKeyChanged) {
+        fetchListValues(0, 99);
+      }
+      return;
+    }
+
+    if (currentKeyItem.type === "hash" || currentKeyItem.type === "set" || currentKeyItem.type === "zset") {
+      if (isKeyChanged) {
+        // Immediate fetch on key change
         fetchComplexValues(true);
-      }, 500);
-      return () => clearTimeout(timer);
+      } else {
+        // Debounce on filter change
+        const timer = setTimeout(() => {
+          fetchComplexValues(true);
+        }, 500);
+        return () => clearTimeout(timer);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valueFilter, selectedKey]);
@@ -541,13 +563,8 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
       } finally {
         setValueLoading(false);
       }
-    } else if (type === "list") {
-      // For list type, use pagination
-      fetchListValues(0, 99);
-    } else {
-      // For hash, set, zset, use scan
-      fetchComplexValues(true);
     }
+    // List and complex types are handled by useEffect
   };
 
   // Helper to render key type badge color
@@ -611,7 +628,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
         <div className="flex gap-1">
           <Button
             size="sm"
-            className="h-8 gap-1 ml-2"
+            className="h-8 gap-1 ml-2 bg-blue-600 hover:bg-blue-500 text-white shadow-sm"
             onClick={() => setIsAddKeyDialogOpen(true)}
           >
             <Plus className="w-4 h-4" /> {t('redis.addKey', 'Key')}
@@ -644,7 +661,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 px-3 text-[11px] font-medium"
+                  className="h-7 px-3 text-[11px] font-medium text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
                   onClick={() => {
                     const isPrefixSearch = filter && filter.endsWith('*');
                     // We only continue scanning if the filter hasn't changed (comparing to lastScannedFilter)
@@ -748,14 +765,6 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
                       onClick={() => setIsDeleteDialogOpen(true)}
                     >
                       <Trash2 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setSelectedKey(null)}
-                    >
-                      <X className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>

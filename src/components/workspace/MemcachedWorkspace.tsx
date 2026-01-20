@@ -174,7 +174,11 @@ export function MemcachedWorkspace({ tabId, name, connectionId, savedResult }: {
                                         }
                                     }}
                                 />
-                                <Button onClick={() => handleSearch()} disabled={loading || !searchKey.trim()}>
+                                <Button 
+                                    onClick={() => handleSearch()} 
+                                    disabled={loading || !searchKey.trim()}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white shadow-sm"
+                                >
                                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Search className="w-4 h-4 mr-2" />}
                                     {t('common.searchPlaceholder').replace('...', '')}
                                 </Button>
