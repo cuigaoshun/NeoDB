@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
-import { Play, Loader2, FileCode, Hash, Type, Calendar, Binary, Trash2, Plus, Copy, Check, X, ChevronLeft, ChevronRight, Filter, Pencil, Wand2, Eye } from "lucide-react";
+import { Play, Loader2, FileCode, Hash, Type, Calendar, Binary, Trash2, Plus, Copy, Check, X, ChevronLeft, ChevronRight, Filter, Pencil, Wand2, Eye, MousePointerClick } from "lucide-react";
 import { FilterBuilder } from "@/components/workspace/FilterBuilder";
 import { TextFormatterDialog } from "@/components/common/TextFormatterDialog";
 import { RowViewerDialog } from "@/components/common/RowViewerDialog";
@@ -1311,21 +1311,15 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                                     </div>
                                                                                 </ContextMenuTrigger>
                                                                                 <ContextMenuContent>
-                                                                                    <ContextMenuItem
-                                                                                        onClick={() => {
-                                                                                            if (isRowSelected) {
-                                                                                                setSelectedRowIndices(selectedRowIndices.filter(idx => idx !== originalRowIdx));
-                                                                                            } else {
-                                                                                                setSelectedRowIndices([...selectedRowIndices, originalRowIdx]);
-                                                                                            }
-                                                                                        }}
-                                                                                    >
-                                                                                        <Check className={cn("h-3 w-3 mr-2", !isRowSelected && "opacity-0")} />
-                                                                                        {isRowSelected ? t('common.deselect', '取消选中') : t('common.select', '选中')}
-                                                                                    </ContextMenuItem>
+                                                                                    {/* 编辑 */}
+                                                                                    {isEditable && (
+                                                                                        <ContextMenuItem onClick={() => handleCellEdit(originalRowIdx, col.name, row[col.name], false)}>
+                                                                                            <Pencil className="h-3 w-3 mr-2" />
+                                                                                            {t('common.edit', '编辑')}
+                                                                                        </ContextMenuItem>
+                                                                                    )}
 
-                                                                                    <ContextMenuSeparator />
-
+                                                                                    {/* 查看行 */}
                                                                                     <ContextMenuItem
                                                                                         onClick={() => {
                                                                                             setViewingRow(row);
@@ -1336,6 +1330,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                                         {t('common.viewRow', '查看行')}
                                                                                     </ContextMenuItem>
 
+                                                                                    {/* 查看格式化 */}
                                                                                     <ContextMenuItem
                                                                                         onClick={() => {
                                                                                             const content = typeof row[col.name] === 'object' && row[col.name] !== null ? JSON.stringify(row[col.name]) : String(row[col.name]);
@@ -1387,24 +1382,39 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                                         {t('common.viewFormatted', '查看格式化/完整内容')}
                                                                                     </ContextMenuItem>
 
+                                                                                    <ContextMenuSeparator />
+
+                                                                                    {/* 选中 */}
+                                                                                    <ContextMenuItem
+                                                                                        onClick={() => {
+                                                                                            if (isRowSelected) {
+                                                                                                setSelectedRowIndices(selectedRowIndices.filter(idx => idx !== originalRowIdx));
+                                                                                            } else {
+                                                                                                setSelectedRowIndices([...selectedRowIndices, originalRowIdx]);
+                                                                                            }
+                                                                                        }}
+                                                                                    >
+                                                                                        <MousePointerClick className="h-3 w-3 mr-2" />
+                                                                                        {isRowSelected ? t('common.deselect', '取消选中') : t('common.select', '选中')}
+                                                                                    </ContextMenuItem>
+
+                                                                                    {/* 复制行 */}
                                                                                     {isEditable && (
-                                                                                        <>
-                                                                                            <ContextMenuItem onClick={() => handleCellEdit(originalRowIdx, col.name, row[col.name], false)}>
-                                                                                                <Pencil className="h-3 w-3 mr-2" />
-                                                                                                {t('common.edit', '编辑')}
-                                                                                            </ContextMenuItem>
-                                                                                            <ContextMenuItem onClick={() => handleCopySingleRow(originalRowIdx)}>
-                                                                                                <Copy className="h-3 w-3 mr-2" />
-                                                                                                {t('common.duplicateRow', '复制行')}
-                                                                                            </ContextMenuItem>
-                                                                                            <ContextMenuItem
-                                                                                                onClick={() => handleDeleteSingleRow(originalRowIdx)}
-                                                                                                className="text-red-600 focus:text-red-600"
-                                                                                            >
-                                                                                                <Trash2 className="h-3 w-3 mr-2" />
-                                                                                                {t('common.deleteRow', '删除行')}
-                                                                                            </ContextMenuItem>
-                                                                                        </>
+                                                                                        <ContextMenuItem onClick={() => handleCopySingleRow(originalRowIdx)}>
+                                                                                            <Copy className="h-3 w-3 mr-2" />
+                                                                                            {t('common.duplicateRow', '复制行')}
+                                                                                        </ContextMenuItem>
+                                                                                    )}
+
+                                                                                    {/* 删除行 */}
+                                                                                    {isEditable && (
+                                                                                        <ContextMenuItem
+                                                                                            onClick={() => handleDeleteSingleRow(originalRowIdx)}
+                                                                                            className="text-red-600 focus:text-red-600"
+                                                                                        >
+                                                                                            <Trash2 className="h-3 w-3 mr-2" />
+                                                                                            {t('common.deleteRow', '删除行')}
+                                                                                        </ContextMenuItem>
                                                                                     )}
                                                                                 </ContextMenuContent>
                                                                             </ContextMenu>
