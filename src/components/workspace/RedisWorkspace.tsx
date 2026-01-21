@@ -838,12 +838,38 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
                 </Button>
               </div>
               
-              {/* 第二行: Total + 视图切换 + (精确搜索 或 Scan More) */}
+              {/* 第二行: Total + Scan More | 视图切换 + 精确搜索 */}
               <div className="flex justify-between items-center mt-2 px-1">
-                <span className="text-xs text-muted-foreground">
-                  {t('common.total')}: {keys.length}
-                  {hasMore ? "+" : ""}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {t('common.total')}: {keys.length}
+                    {hasMore ? "+" : ""}
+                  </span>
+                  
+                  {/* Scan More 按钮 - 放在总数右边 */}
+                  {showScanMore && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={`h-6 px-2 text-[11px] font-medium ${
+                        hasMore 
+                          ? "text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
+                          : "text-muted-foreground border-muted"
+                      }`}
+                      onClick={() => {
+                        // 继续扫描
+                        if (hasMore && filter === lastScannedFilter && cursor !== "0") {
+                          fetchKeys(false);
+                        } else {
+                          fetchKeys(true);
+                        }
+                      }}
+                      disabled={loading || !hasMore}
+                    >
+                      {loading ? t('common.scanning') : t('common.scanMore')}
+                    </Button>
+                  )}
+                </div>
                 
                 <div className="flex items-center gap-2">
                   {/* 视图切换下拉 */}
@@ -880,38 +906,15 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
                     </DropdownMenuContent>
                   </DropdownMenu>
                   
-                  {/* 精确搜索 或 Scan More */}
-                  {showScanMore ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={`h-7 px-3 text-[11px] font-medium ${
-                        hasMore 
-                          ? "text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
-                          : "text-muted-foreground border-muted"
-                      }`}
-                      onClick={() => {
-                        // 继续扫描
-                        if (hasMore && filter === lastScannedFilter && cursor !== "0") {
-                          fetchKeys(false);
-                        } else {
-                          fetchKeys(true);
-                        }
-                      }}
-                      disabled={loading || !hasMore}
-                    >
-                      {loading ? t('common.scanning') : hasMore ? t('common.scanMore') : t('common.scanMore')}
-                    </Button>
-                  ) : (
-                    <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
-                      <Checkbox
-                        checked={exactSearch}
-                        onCheckedChange={(checked) => setExactSearch(checked === true)}
-                        className="h-3.5 w-3.5"
-                      />
-                      <span className="text-muted-foreground">{t('redis.exactSearch')}</span>
-                    </label>
-                  )}
+                  {/* 精确搜索 - 一直展示 */}
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                    <Checkbox
+                      checked={exactSearch}
+                      onCheckedChange={(checked) => setExactSearch(checked === true)}
+                      className="h-3.5 w-3.5"
+                    />
+                    <span className="text-muted-foreground">{t('redis.exactSearch')}</span>
+                  </label>
                 </div>
               </div>
             </div>
