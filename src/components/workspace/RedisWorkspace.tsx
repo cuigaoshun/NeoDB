@@ -9,8 +9,8 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { addCommandToConsole } from "@/components/ui/CommandConsole";
 import { RedisHashViewer } from "../redis/RedisHashViewer";
 import { RedisSetViewer } from "../redis/RedisSetViewer";
@@ -50,6 +50,48 @@ interface ScanResult {
   keys: KeyDetail[];
 }
 
+// Pure function - extract outside component to avoid recreation
+const getSearchPattern = (searchTerm: string): string => {
+  if (!searchTerm.trim()) {
+    return "*"; // Full scan
+  }
+
+  // Check if it's a prefix pattern (ends with *)
+  if (searchTerm.endsWith('*')) {
+    const prefix = searchTerm.slice(0, -1);
+    return prefix ? `${prefix}*` : "*";
+  }
+
+  // For exact search, we'll use pattern search but filter client-side
+  return `*${searchTerm}*`;
+};
+
+// Pure functions - extract outside component
+const getTypeColor = (type?: string): string => {
+  switch (type) {
+    case "string":
+      return "bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200";
+    case "hash":
+      return "bg-purple-100 text-purple-700 hover:bg-purple-200 border-purple-200";
+    case "list":
+      return "bg-green-100 text-green-700 hover:bg-green-200 border-green-200";
+    case "set":
+      return "bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200";
+    case "zset":
+      return "bg-pink-100 text-pink-700 hover:bg-pink-200 border-pink-200";
+    default:
+      return "bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-200";
+  }
+};
+
+const formatSize = (bytes?: number | null): string => {
+  if (bytes === null || bytes === undefined) return "-";
+  if (bytes < 1024) return `${bytes} B`;
+  return `${(bytes / 1024).toFixed(2)} KB`;
+};
+
+const KEY_ITEM_HEIGHT = 52; // Fixed height for each key item
+
 export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult }: { tabId: string; name: string; connectionId: number; db?: number; savedResult?: any }) {
   const { t } = useTranslation();
   const [keys, setKeys] = useState<KeyDetail[]>(savedResult?.keys || []);
@@ -76,7 +118,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
   const updateTab = useAppStore(state => state.updateTab);
   const redisScanCount = useSettingsStore(state => state.redisScanCount);
 
-  // Sync state to global store
+  // Sync keys state to global store
   useEffect(() => {
     const timer = setTimeout(() => {
       updateTab(tabId, {
@@ -84,47 +126,67 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
           keys,
           cursor,
           hasMore,
-          selectedKey,
-          selectedValue,
-          allValues,
-          valueCursor,
           lastScannedFilter
         }
       });
     }, 500);
     return () => clearTimeout(timer);
-  }, [keys, cursor, hasMore, selectedKey, selectedValue, allValues, valueCursor, lastScannedFilter, tabId, updateTab]);
+  }, [keys, cursor, hasMore, lastScannedFilter, tabId, updateTab]);
 
-  // Generate search pattern based on input
-  const getSearchPattern = (searchTerm: string) => {
-    if (!searchTerm.trim()) {
-      return "*"; // Full scan
-    }
+  // Sync value state to global store (separate effect to reduce updates)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      updateTab(tabId, {
+        savedResult: {
+          selectedKey,
+          selectedValue,
+          allValues,
+          valueCursor
+        }
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [selectedKey, selectedValue, allValues, valueCursor, tabId, updateTab]);
 
-    // Check if it's a prefix pattern (ends with *)
-    if (searchTerm.endsWith('*')) {
-      const prefix = searchTerm.slice(0, -1);
-      return prefix ? `${prefix}*` : "*";
-    }
+  // Refs for stable access in callbacks
+  const loadingRef = useRef(loading);
+  loadingRef.current = loading;
+  const hasMoreRef = useRef(hasMore);
+  hasMoreRef.current = hasMore;
+  const cursorRef = useRef(cursor);
+  cursorRef.current = cursor;
+  const filterRef = useRef(filter);
+  filterRef.current = filter;
 
-    // For exact search, we'll use pattern search but filter client-side
-    return `*${searchTerm}*`;
-  };
+  // Refs for value-related state
+  const valueLoadingRef = useRef(valueLoading);
+  valueLoadingRef.current = valueLoading;
+  const valueHasMoreRef = useRef(valueHasMore);
+  valueHasMoreRef.current = valueHasMore;
+  const valueCursorRef = useRef(valueCursor);
+  valueCursorRef.current = valueCursor;
+  const valueFilterRef = useRef(valueFilter);
+  valueFilterRef.current = valueFilter;
+  const selectedKeyRef = useRef(selectedKey);
+  selectedKeyRef.current = selectedKey;
+  const keysRef = useRef(keys);
+  keysRef.current = keys;
 
-  const fetchKeys = async (reset = false) => {
-    if (loading) return;
-    if (!reset && !hasMore) return;
+  const fetchKeys = useCallback(async (reset = false) => {
+    if (loadingRef.current) return;
+    if (!reset && !hasMoreRef.current) return;
 
     setLoading(true);
 
-    const useExactSearch = filter && !filter.endsWith('*') && filter.trim() !== "";
+    const currentFilter = filterRef.current;
+    const useExactSearch = currentFilter && !currentFilter.endsWith('*') && currentFilter.trim() !== "";
     const startTime = Date.now();
     let command = '';
 
     try {
       if (useExactSearch) {
         // Exact search: use EXISTS command
-        const searchTerm = filter.trim();
+        const searchTerm = currentFilter.trim();
         command = `EXISTS ${searchTerm}`;
 
         const result = await invoke<RedisResult>("execute_redis_command", {
@@ -157,12 +219,8 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
         });
       } else {
         // Full scan or prefix search: use SCAN
-        // IMPORTANT: If we are not resetting, we continue from the existing cursor
-        // If the filter has changed, we should have reset via the useEffect or manual trigger, so `reset` would be true.
-        // If we are here with `reset=false`, it means we are continuing the scan for the *same* filter (or we should be).
-
-        const currentCursor = reset ? "0" : cursor;
-        const searchPattern = getSearchPattern(filter);
+        const currentCursor = reset ? "0" : cursorRef.current;
+        const searchPattern = getSearchPattern(currentFilter);
         command = `SCAN ${currentCursor} MATCH ${searchPattern} COUNT ${redisScanCount}`;
 
         const result = await invoke<ScanResult>("get_redis_keys", {
@@ -184,7 +242,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
 
         // Update the last scanned filter only on successful scan
         if (!useExactSearch) {
-          setLastScannedFilter(filter);
+          setLastScannedFilter(currentFilter);
         }
 
         // Log command to console
@@ -209,9 +267,9 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
     } finally {
       setLoading(false);
     }
-  };
+  }, [connectionId, db, redisScanCount]);
 
-  const handleDeleteKey = async () => {
+  const handleDeleteKey = useCallback(async () => {
     if (!selectedKey) return;
 
     setIsDeleteDialogOpen(false);
@@ -244,20 +302,23 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
         error: error instanceof Error ? error.message : String(error)
       });
     }
-  };
+  }, [connectionId, db, selectedKey, fetchKeys]);
 
-  const fetchComplexValues = async (reset = false) => {
-    const currentKeyItem = keys.find((k) => k.key === selectedKey);
-    if (!selectedKey || !currentKeyItem) return;
-    if (valueLoading) return;
-    if (!reset && !valueHasMore) return;
+  const fetchComplexValues = useCallback(async (reset = false) => {
+    const currentSelectedKey = selectedKeyRef.current;
+    const currentKeys = keysRef.current;
+    const currentKeyItem = currentKeys.find((k) => k.key === currentSelectedKey);
+    if (!currentSelectedKey || !currentKeyItem) return;
+    if (valueLoadingRef.current) return;
+    if (!reset && !valueHasMoreRef.current) return;
 
     setValueLoading(true);
-    const currentCursor = reset ? "0" : valueCursor;
+    const currentCursor = reset ? "0" : valueCursorRef.current;
 
     // Determine search strategy for complex values
-    const useExactSearch = valueFilter && !valueFilter.endsWith('*') && valueFilter.trim() !== "";
-    const searchPattern = getSearchPattern(valueFilter);
+    const currentValueFilter = valueFilterRef.current;
+    const useExactSearch = currentValueFilter && !currentValueFilter.endsWith('*') && currentValueFilter.trim() !== "";
+    const searchPattern = getSearchPattern(currentValueFilter);
     const type = currentKeyItem.type;
 
     const startTime = Date.now();
@@ -267,30 +328,30 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
       let result;
 
       if (type === "hash") {
-        command = `HSCAN ${selectedKey} ${currentCursor} MATCH ${searchPattern} COUNT 100`;
+        command = `HSCAN ${currentSelectedKey} ${currentCursor} MATCH ${searchPattern} COUNT 100`;
         result = await invoke<ValueScanResult>("scan_hash_values", {
           connectionId,
-          key: selectedKey,
+          key: currentSelectedKey,
           cursor: currentCursor,
           count: 100,
           pattern: searchPattern,
           db,
         });
       } else if (type === "set") {
-        command = `SSCAN ${selectedKey} ${currentCursor} MATCH ${searchPattern} COUNT 100`;
+        command = `SSCAN ${currentSelectedKey} ${currentCursor} MATCH ${searchPattern} COUNT 100`;
         result = await invoke<ValueScanResult>("scan_set_members", {
           connectionId,
-          key: selectedKey,
+          key: currentSelectedKey,
           cursor: currentCursor,
           count: 100,
           pattern: searchPattern,
           db,
         });
       } else if (type === "zset") {
-        command = `ZSCAN ${selectedKey} ${currentCursor} MATCH ${searchPattern} COUNT 100`;
+        command = `ZSCAN ${currentSelectedKey} ${currentCursor} MATCH ${searchPattern} COUNT 100`;
         result = await invoke<ValueScanResult>("scan_zset_members", {
           connectionId,
-          key: selectedKey,
+          key: currentSelectedKey,
           cursor: currentCursor,
           count: 100,
           pattern: searchPattern,
@@ -304,7 +365,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
 
       // If exact search, filter client-side
       if (useExactSearch) {
-        const searchTerm = valueFilter.trim();
+        const searchTerm = currentValueFilter.trim();
         if (type === "hash") {
           // For hash, search in field names
           filteredValues = [];
@@ -359,22 +420,24 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
     } finally {
       setValueLoading(false);
     }
-  };
+  }, [connectionId, db]);
 
-  const fetchListValues = async (start = 0, end = 99) => {
-    const currentKeyItem = keys.find((k) => k.key === selectedKey);
-    if (!selectedKey || !currentKeyItem || currentKeyItem.type !== "list") return;
-    if (valueLoading) return;
+  const fetchListValues = useCallback(async (start = 0, end = 99) => {
+    const currentSelectedKey = selectedKeyRef.current;
+    const currentKeys = keysRef.current;
+    const currentKeyItem = currentKeys.find((k) => k.key === currentSelectedKey);
+    if (!currentSelectedKey || !currentKeyItem || currentKeyItem.type !== "list") return;
+    if (valueLoadingRef.current) return;
 
     setValueLoading(true);
 
     const startTime = Date.now();
-    const command = `LRANGE ${selectedKey} ${start} ${end}`;
+    const command = `LRANGE ${currentSelectedKey} ${start} ${end}`;
 
     try {
       const result = await invoke<RedisResult>("scan_list_values", {
         connectionId,
-        key: selectedKey,
+        key: currentSelectedKey,
         start,
         end,
         db,
@@ -404,7 +467,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
     } finally {
       setValueLoading(false);
     }
-  };
+  }, [connectionId, db]);
 
   // Precision control for fetchKeys using refs to handle Strict Mode and dependencies
   const propsRef = useRef({ connectionId, db, filter, initialized: false });
@@ -515,7 +578,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
     return () => observer.disconnect();
   }, [valueHasMore, valueLoading, fetchComplexValues, selectedKey]);
 
-  const handleKeyClick = async (keyItem: KeyDetail) => {
+  const handleKeyClick = useCallback(async (keyItem: KeyDetail) => {
     setSelectedKey(keyItem.key);
     setSelectedValue(null);
 
@@ -565,33 +628,9 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
       }
     }
     // List and complex types are handled by useEffect
-  };
+  }, [connectionId, db, t]);
 
-  // Helper to render key type badge color
-  const getTypeColor = (type?: string) => {
-    switch (type) {
-      case "string":
-        return "bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200";
-      case "hash":
-        return "bg-purple-100 text-purple-700 hover:bg-purple-200 border-purple-200";
-      case "list":
-        return "bg-green-100 text-green-700 hover:bg-green-200 border-green-200";
-      case "set":
-        return "bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200";
-      case "zset":
-        return "bg-pink-100 text-pink-700 hover:bg-pink-200 border-pink-200";
-      default:
-        return "bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-200";
-    }
-  };
-
-  const formatSize = (bytes?: number | null) => {
-    if (bytes === null || bytes === undefined) return "-";
-    if (bytes < 1024) return `${bytes} B`;
-    return `${(bytes / 1024).toFixed(2)} KB`;
-  };
-
-  const formatTTL = (seconds?: number) => {
+  const formatTTL = useCallback((seconds?: number): string => {
     if (seconds === undefined || seconds === null) return "-";
     if (seconds === -1) return t('common.noLimit');
     if (seconds < 0) return t('common.expired');
@@ -607,9 +646,49 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
 
     const s = seconds % 60;
     return `${s}s`;
-  };
+  }, [t]);
 
-  const selectedKeyItem = keys.find((k) => k.key === selectedKey);
+  const selectedKeyItem = useMemo(
+    () => keys.find((k) => k.key === selectedKey),
+    [keys, selectedKey]
+  );
+
+  // P1: Extract onRefresh callback to avoid recreation on each render
+  const handleRefresh = useCallback(() => {
+    const currentSelectedKey = selectedKeyRef.current;
+    const currentKeys = keysRef.current;
+    const currentKeyItem = currentKeys.find((k) => k.key === currentSelectedKey);
+    if (!currentSelectedKey || !currentKeyItem) return;
+
+    if (currentKeyItem.type === "string") {
+      setValueLoading(true);
+      invoke<RedisResult>("execute_redis_command", {
+        connectionId,
+        command: "GET",
+        args: [currentSelectedKey],
+        db,
+      }).then(valRes => {
+        setSelectedValue(valRes.output);
+      }).finally(() => {
+        setValueLoading(false);
+      });
+    } else if (currentKeyItem.type === "list") {
+      fetchListValues(0, 99);
+    } else {
+      fetchComplexValues(true);
+    }
+  }, [connectionId, db, fetchListValues, fetchComplexValues]);
+
+  // Virtual list parent ref
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  // Virtual list for keys
+  const rowVirtualizer = useVirtualizer({
+    count: keys.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => KEY_ITEM_HEIGHT,
+    overscan: 5,
+  });
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -683,54 +762,74 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
               </div>
             </div>
 
-            {/* Key List */}
-            <ScrollArea className="flex-1">
-              <div className="flex flex-col divide-y">
-                {keys.map((key) => (
-                  <div
-                    key={key.key}
-                    className={`flex items-center p-3 cursor-pointer hover:bg-accent/50 transition-colors gap-3 ${selectedKey === key.key ? "bg-accent" : ""
-                      }`}
-                    onClick={() => handleKeyClick(key)}
-                  >
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] px-1.5 py-0 h-5 rounded min-w-[40px] justify-center uppercase border-0 ${getTypeColor(
-                        key.type
-                      )}`}
+            {/* Key List - Virtual */}
+            <div ref={parentRef} className="flex-1 overflow-auto">
+              <div
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  width: '100%',
+                  position: 'relative',
+                }}
+              >
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const key = keys[virtualRow.index];
+                  return (
+                    <div
+                      key={key.key}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: `${virtualRow.size}px`,
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
                     >
-                      {key.type || "..."}
-                    </Badge>
-                    <div className="flex-1 min-w-0">
                       <div
-                        className="text-sm font-medium truncate font-mono"
-                        title={key.key}
+                        className={`flex items-center p-3 cursor-pointer hover:bg-accent/50 transition-colors gap-3 border-b ${selectedKey === key.key ? "bg-accent" : ""
+                          }`}
+                        onClick={() => handleKeyClick(key)}
                       >
-                        {key.key}
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-1.5 py-0 h-5 rounded min-w-[40px] justify-center uppercase border-0 ${getTypeColor(
+                            key.type
+                          )}`}
+                        >
+                          {key.type || "..."}
+                        </Badge>
+                        <div className="flex-1 min-w-0">
+                          <div
+                            className="text-sm font-medium truncate font-mono"
+                            title={key.key}
+                          >
+                            {key.key}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
+                          <span>{formatTTL(key.ttl)}</span>
+                          <span>{formatSize(key.length)}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end text-[10px] text-muted-foreground shrink-0 whitespace-nowrap">
-                      <span>{formatTTL(key.ttl)}</span>
-                      <span>{formatSize(key.length)}</span>
-                    </div>
-                  </div>
-                ))}
-                {keys.length === 0 && !loading && (
-                  <div className="p-8 text-center text-muted-foreground text-sm">
-                    {t('redis.noKeys', 'No keys found')}
-                  </div>
-                )}
-
-                {/* Sentinel for infinite scroll */}
-                <div ref={observerTarget} className="h-px w-full" />
-
-                {loading && (
-                  <div className="p-4 text-center text-muted-foreground text-xs">
-                    {t('common.loading', 'Loading...')}
-                  </div>
-                )}
+                  );
+                })}
               </div>
-            </ScrollArea>
+              {keys.length === 0 && !loading && (
+                <div className="p-8 text-center text-muted-foreground text-sm">
+                  {t('redis.noKeys', 'No keys found')}
+                </div>
+              )}
+
+              {/* Sentinel for infinite scroll */}
+              <div ref={observerTarget} className="h-px w-full" />
+
+              {loading && (
+                <div className="p-4 text-center text-muted-foreground text-xs">
+                  {t('common.loading', 'Loading...')}
+                </div>
+              )}
+            </div>
           </ResizablePanel>
 
           <ResizableHandle />
@@ -804,28 +903,7 @@ export function RedisWorkspace({ tabId, name, connectionId, db = 0, savedResult 
                         loading={valueLoading}
                         filter={valueFilter}
                         onFilterChange={setValueFilter}
-                        onRefresh={() => {
-                          const currentKeyItem = keys.find((k) => k.key === selectedKey);
-                          if (!selectedKey || !currentKeyItem) return;
-
-                          if (currentKeyItem.type === "string") {
-                            setValueLoading(true);
-                            invoke<RedisResult>("execute_redis_command", {
-                              connectionId,
-                              command: "GET",
-                              args: [selectedKey],
-                              db,
-                            }).then(valRes => {
-                              setSelectedValue(valRes.output);
-                            }).finally(() => {
-                              setValueLoading(false);
-                            });
-                          } else if (currentKeyItem.type === "list") {
-                            fetchListValues(0, 99);
-                          } else {
-                            fetchComplexValues(true);
-                          }
-                        }}
+                        onRefresh={handleRefresh}
                         observerTarget={valueObserverTarget}
                       />
                     </div>
