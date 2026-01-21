@@ -16,6 +16,12 @@ export interface Connection {
 
 export type TabType = 'connection' | 'query' | 'table-schema' | 'database-tables' | 'redis-db';
 
+export interface TableInfo {
+  name: string;
+  comment?: string;
+  rowCount?: number;
+}
+
 export interface Tab {
   id: string;
   title: string;
@@ -49,6 +55,8 @@ interface AppState {
   activeTabId: string | null;
   activeView: 'home' | 'connections' | 'settings';
   expandedConnectionId: number | null;
+  // 表信息缓存：key 为 "connectionId-dbName"
+  tablesCache: Record<string, TableInfo[]>;
 
   setConnections: (connections: Connection[]) => void;
   addTab: (tab: Omit<Tab, 'active'>) => void;
@@ -66,14 +74,20 @@ interface AppState {
   addConnection: (conn: Connection) => void;
   removeConnection: (id: number) => void;
   updateConnection: (conn: Connection) => void;
+
+  // 表信息缓存方法
+  setTablesCache: (connectionId: number, dbName: string, tables: TableInfo[]) => void;
+  getTablesCache: (connectionId: number, dbName: string) => TableInfo[] | undefined;
+  clearTablesCache: (connectionId: number, dbName: string) => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   connections: [],
   tabs: [],
   activeTabId: null,
   activeView: 'home',
   expandedConnectionId: null,
+  tablesCache: {},
 
   setConnections: (connections) => set({ connections }),
 
@@ -181,5 +195,24 @@ export const useAppStore = create<AppState>((set) => ({
 
   updateConnection: (conn) => set((state) => ({
     connections: state.connections.map(c => c.id === conn.id ? conn : c)
-  }))
+  })),
+
+  // 表信息缓存方法
+  setTablesCache: (connectionId, dbName, tables) => set((state) => ({
+    tablesCache: {
+      ...state.tablesCache,
+      [`${connectionId}-${dbName}`]: tables
+    }
+  })),
+
+  getTablesCache: (connectionId, dbName) => {
+    const state = get();
+    return state.tablesCache[`${connectionId}-${dbName}`];
+  },
+
+  clearTablesCache: (connectionId, dbName) => set((state) => {
+    const newCache = { ...state.tablesCache };
+    delete newCache[`${connectionId}-${dbName}`];
+    return { tablesCache: newCache };
+  })
 }));

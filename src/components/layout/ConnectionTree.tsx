@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Connection, useAppStore } from "@/store/useAppStore";
+import { useState, useEffect, useRef } from "react";
+import { Connection, useAppStore, TableInfo } from "@/store/useAppStore";
 import { confirm } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -43,19 +43,23 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
     const addTab = useAppStore(state => state.addTab);
     const setExpandedConnectionId = useAppStore(state => state.setExpandedConnectionId);
     const globalExpandedId = useAppStore(state => state.expandedConnectionId);
+    const setTablesCache = useAppStore(state => state.setTablesCache);
 
     const [isExpanded, setIsExpanded] = useState(false);
     const [databases, setDatabases] = useState<string[]>([]);
     const [isLoadingDatabases, setIsLoadingDatabases] = useState(false);
     const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set());
     const [error, setError] = useState<string | null>(null);
-    // Map dbName -> tables
-    const [tables, setTables] = useState<Record<string, string[]>>({});
+    // Map dbName -> TableInfo[]
+    const [tables, setTables] = useState<Record<string, TableInfo[]>>({});
     const [loadingTables, setLoadingTables] = useState<Set<string>>(new Set());
 
     // Create table dialog state
     const [showCreateTableDialog, setShowCreateTableDialog] = useState(false);
     const [createTableDbName, setCreateTableDbName] = useState<string>('');
+
+    // 使用 ref 来防止 loadDatabases 重复调用
+    const loadingDatabasesRef = useRef<{ connectionId: number; loading: boolean } | null>(null);
 
     // Auto-expand if filter matches something inside (and we have data)
     // This is tricky with lazy loading. We only filter what we have.
@@ -69,7 +73,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
             if (isMatch(db)) return true;
             // Check if any table matches
             const dbTables = tables[db];
-            if (dbTables && dbTables.some(t => isMatch(t))) return true;
+            if (dbTables && dbTables.some(t => isMatch(t.name))) return true;
             return false;
         });
     };
@@ -78,13 +82,14 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
     const getFilteredTables = (db: string) => {
         const dbTables = tables[db] || [];
         if (!filterTerm) return dbTables;
-        return dbTables.filter(t => isMatch(t));
+        return dbTables.filter(t => isMatch(t.name));
     };
 
     // Sync from global expanded ID
     useEffect(() => {
         if (globalExpandedId === connection.id && !isExpanded) {
             setIsExpanded(true);
+            // 如果数据库列表为空，则加载
             if (databases.length === 0) {
                 loadDatabases();
             }
@@ -99,7 +104,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
             setExpandedConnectionId(connection.id);
             // Load databases if not loaded yet (for supported types)
             if ((connection.db_type === 'mysql' || connection.db_type === 'redis' || connection.db_type === 'sqlite') && databases.length === 0) {
-                await loadDatabases();
+                loadDatabases();
             }
         } else {
             setIsExpanded(false);
@@ -118,7 +123,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
             setExpandedConnectionId(connection.id);
             // Load databases if not loaded yet (for supported types)
             if ((connection.db_type === 'mysql' || connection.db_type === 'redis' || connection.db_type === 'sqlite') && databases.length === 0) {
-                await loadDatabases();
+                loadDatabases();
             }
         }
     };
@@ -128,10 +133,19 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
     }
 
     const loadDatabases = async () => {
+        // 如果已经在加载相同连接的数据，直接返回
+        if (loadingDatabasesRef.current?.connectionId === connection.id && loadingDatabasesRef.current?.loading) {
+            console.log('[ConnectionTree] 跳过重复加载数据库列表:', connection.id);
+            return;
+        }
+
+        // 立即设置加载标志
+        loadingDatabasesRef.current = { connectionId: connection.id, loading: true };
         setError(null);
         if (connection.db_type === 'sqlite') {
             // SQLite doesn't have multiple databases per connection usually, just treat the file as "main"
             setDatabases(['main']);
+            loadingDatabasesRef.current.loading = false;
             return;
         }
 
@@ -190,6 +204,8 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                     success: false,
                     error: errorMsg
                 });
+            } finally {
+                loadingDatabasesRef.current.loading = false;
             }
             return;
         }
@@ -229,6 +245,10 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
             });
         } finally {
             setIsLoadingDatabases(false);
+            // 加载完成后重置loading标志
+            if (loadingDatabasesRef.current?.connectionId === connection.id) {
+                loadingDatabasesRef.current.loading = false;
+            }
         }
     };
 
@@ -277,7 +297,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
 
             // 只有在展开节点且表列表未加载时才加载
             if (!tables[dbName]) {
-                await loadTables(dbName);
+                loadTables(dbName);
             }
         }
     };
@@ -292,7 +312,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
         const dbType = connection.db_type;
 
         try {
-            let tableNames: string[] = [];
+            let tableList: TableInfo[] = [];
 
             if (connection.db_type === 'sqlite') {
                 command = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name;";
@@ -300,26 +320,40 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                     connectionId: connection.id,
                     sql: command
                 });
-                tableNames = result.rows
-                    .map(row => Object.values(row)[0] as string)
-                    .filter(Boolean);
+                tableList = result.rows
+                    .map(row => ({ name: Object.values(row)[0] as string }))
+                    .filter(item => Boolean(item.name));
             } else {
-                command = `SHOW TABLES FROM ${dbName}`;
+                // 使用 SHOW TABLE STATUS 获取完整的表信息
+                command = `SHOW TABLE STATUS FROM \`${dbName}\``;
                 const result = await invoke<SqlResult>('execute_sql', {
                     connectionId: connection.id,
                     sql: command
                 });
 
-                // Robustly parse result by taking the first value of each row
-                tableNames = result.rows
-                    .map(row => Object.values(row)[0] as string)
-                    .filter(Boolean);
+                // 解析表信息
+                tableList = result.rows
+                    .map(row => {
+                        const nameKey = Object.keys(row).find(k => k.toLowerCase() === 'name') || Object.keys(row)[0];
+                        const commentKey = Object.keys(row).find(k => k.toLowerCase() === 'comment');
+                        const rowsKey = Object.keys(row).find(k => k.toLowerCase() === 'rows');
+
+                        return {
+                            name: row[nameKey] as string,
+                            comment: commentKey ? row[commentKey] as string : undefined,
+                            rowCount: rowsKey ? row[rowsKey] as number : undefined
+                        };
+                    })
+                    .filter(item => Boolean(item.name));
             }
 
             setTables(prev => ({
                 ...prev,
-                [dbName]: tableNames
+                [dbName]: tableList
             }));
+
+            // 缓存到 store 中
+            setTablesCache(connection.id, dbName, tableList);
 
             addCommandToConsole({
                 databaseType: dbType as any,
@@ -555,32 +589,32 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                                             </div>
                                         ) : (
                                             getFilteredTables(db).map(table => (
-                                                <ContextMenu key={table}>
+                                                <ContextMenu key={table.name}>
                                                     <ContextMenuTrigger>
                                                         <div
                                                             className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent text-muted-foreground hover:text-foreground text-xs ml-4"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                onSelectTable?.(connection, db, table);
+                                                                onSelectTable?.(connection, db, table.name);
                                                             }}
                                                         >
                                                             <TableIcon className="h-3 w-3 text-blue-400/70 shrink-0" />
-                                                            <span className="truncate">{table}</span>
+                                                            <span className="truncate">{table.name}</span>
                                                         </div>
                                                     </ContextMenuTrigger>
                                                     <ContextMenuContent>
                                                         <ContextMenuItem
-                                                            onClick={() => onSelectTable?.(connection, db, table)}
+                                                            onClick={() => onSelectTable?.(connection, db, table.name)}
                                                         >
                                                             {t('mysql.viewData')}
                                                         </ContextMenuItem>
                                                         <ContextMenuItem
-                                                            onClick={() => handleViewTableSchema(db, table)}
+                                                            onClick={() => handleViewTableSchema(db, table.name)}
                                                         >
                                                             {t('mysql.viewSchema')}
                                                         </ContextMenuItem>
                                                         <ContextMenuItem
-                                                            onClick={() => handleNewQueryTab(db, table)}
+                                                            onClick={() => handleNewQueryTab(db, table.name)}
                                                         >
                                                             {t('mysql.newQueryTab', '新建查询')}
                                                         </ContextMenuItem>
@@ -591,7 +625,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                                                             {t('mysql.createTable')}
                                                         </ContextMenuItem>
                                                         <ContextMenuItem
-                                                            onClick={() => handleDeleteTable(db, table)}
+                                                            onClick={() => handleDeleteTable(db, table.name)}
                                                             className="text-red-600"
                                                         >
                                                             {t('mysql.deleteTable')}

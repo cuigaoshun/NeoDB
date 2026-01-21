@@ -47,6 +47,9 @@ export function DatabaseTablesTab({ connectionId, dbName, dbType }: DatabaseTabl
     const { t } = useTranslation();
     const addTab = useAppStore(state => state.addTab);
     const connection = useAppStore(state => state.connections.find(c => c.id === connectionId));
+    const getTablesCache = useAppStore(state => state.getTablesCache);
+    const setTablesCache = useAppStore(state => state.setTablesCache);
+    const clearTablesCache = useAppStore(state => state.clearTablesCache);
 
     const [tables, setTables] = useState<TableInfo[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -64,6 +67,14 @@ export function DatabaseTablesTab({ connectionId, dbName, dbType }: DatabaseTabl
     } | null>(null);
 
     useEffect(() => {
+        // 首先尝试从缓存读取
+        const cachedTables = getTablesCache(connectionId, dbName);
+        if (cachedTables && cachedTables.length > 0) {
+            console.log('[DatabaseTablesTab] 从缓存读取表列表:', { connectionId, dbName, count: cachedTables.length });
+            setTables(cachedTables);
+            return;
+        }
+
         // 如果当前正在加载相同的数据或已经加载过，跳过
         if (loadingStateRef.current?.connectionId === connectionId &&
             loadingStateRef.current?.dbName === dbName &&
@@ -124,6 +135,9 @@ export function DatabaseTablesTab({ connectionId, dbName, dbType }: DatabaseTabl
             }
 
             setTables(tableList);
+
+            // 缓存到 store 中
+            setTablesCache(connectionId, dbName, tableList);
 
             addCommandToConsole({
                 databaseType: dbType as any,
@@ -234,7 +248,8 @@ export function DatabaseTablesTab({ connectionId, dbName, dbType }: DatabaseTabl
                 success: true
             });
 
-            // 刷新表列表
+            // 清除缓存并刷新表列表
+            clearTablesCache(connectionId, dbName);
             await loadTables();
         } catch (err: any) {
             console.error("Failed to drop table:", err);
