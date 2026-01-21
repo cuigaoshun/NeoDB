@@ -60,6 +60,8 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
 
     // 使用 ref 来防止 loadDatabases 重复调用
     const loadingDatabasesRef = useRef<{ connectionId: number; loading: boolean } | null>(null);
+    const prefetchLoadingRef = useRef(false);
+    const hasPrefetchedRef = useRef(false);
 
     // Auto-expand if filter matches something inside (and we have data)
     // This is tricky with lazy loading. We only filter what we have.
@@ -96,14 +98,23 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
         }
     }, [globalExpandedId, connection.id, isExpanded, databases.length]);
 
+    // 自动预取表信息
+    useEffect(() => {
+        if ((isExpanded || isActive) && connection.db_type?.toLowerCase() === 'mysql') {
+            prefetchAllTables();
+        }
+    }, [isExpanded, isActive, connection.db_type]);
+
     const toggleExpand = async (e: React.MouseEvent) => {
         e.stopPropagation();
 
         if (!isExpanded) {
             setIsExpanded(true);
             setExpandedConnectionId(connection.id);
+            const isSupported = (connection.db_type?.toLowerCase() === 'mysql' || connection.db_type === 'redis' || connection.db_type === 'sqlite');
+
             // Load databases if not loaded yet (for supported types)
-            if ((connection.db_type === 'mysql' || connection.db_type === 'redis' || connection.db_type === 'sqlite') && databases.length === 0) {
+            if (isSupported && databases.length === 0) {
                 loadDatabases();
             }
         } else {
@@ -121,8 +132,10 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
         if (!isExpanded) {
             setIsExpanded(true);
             setExpandedConnectionId(connection.id);
-            // Load databases if not loaded yet (for supported types)
-            if ((connection.db_type === 'mysql' || connection.db_type === 'redis' || connection.db_type === 'sqlite') && databases.length === 0) {
+            const isSupported = (connection.db_type?.toLowerCase() === 'mysql' || connection.db_type === 'redis' || connection.db_type === 'sqlite');
+
+            // Load databases if not loaded yet
+            if (isSupported && databases.length === 0) {
                 loadDatabases();
             }
         }
@@ -231,6 +244,12 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                 duration: Date.now() - startTime,
                 success: true
             });
+
+            // 异步加载所有表的缓存，用于搜索
+            if (connection.db_type?.toLowerCase() === 'mysql') {
+                prefetchAllTables();
+            }
+
         } catch (err) {
             console.error("Failed to load databases:", err);
             setError(String(err));
@@ -251,6 +270,99 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
             }
         }
     };
+
+    // 预取所有表信息
+    const prefetchAllTables = async () => {
+        if (prefetchLoadingRef.current || hasPrefetchedRef.current) {
+            return;
+        }
+
+        prefetchLoadingRef.current = true;
+        const startTime = Date.now();
+
+        const sql = `
+            SELECT TABLE_SCHEMA, TABLE_NAME 
+            FROM information_schema.TABLES 
+            WHERE TABLE_SCHEMA NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')
+        `;
+
+        try {
+            const result = await invoke<SqlResult>('execute_sql', {
+                connectionId: connection.id,
+                sql
+            });
+
+            const newTables: Record<string, TableInfo[]> = {};
+
+            result.rows.forEach(row => {
+                const schema = row['TABLE_SCHEMA'] as string;
+                const name = row['TABLE_NAME'] as string;
+                if (!schema || !name) return;
+
+                if (!newTables[schema]) {
+                    newTables[schema] = [];
+                }
+                newTables[schema].push({ name });
+            });
+
+            setTables(prev => {
+                const merged = { ...prev };
+                Object.keys(newTables).forEach(db => {
+                    // 如果当前没有缓存，或者缓存为空，才使用预取的数据
+                    if (!merged[db] || merged[db].length === 0) {
+                        merged[db] = newTables[db];
+                        // 同时缓存到全局 store
+                        setTablesCache(connection.id, db, newTables[db]);
+                    }
+                });
+                return merged;
+            });
+
+            addCommandToConsole({
+                databaseType: 'mysql',
+                command: sql,
+                duration: Date.now() - startTime,
+                success: true
+            });
+
+            hasPrefetchedRef.current = true;
+        } catch (err) {
+            console.error("Failed to prefetch tables:", err);
+            addCommandToConsole({
+                databaseType: 'mysql',
+                command: sql,
+                duration: Date.now() - startTime,
+                success: false,
+                error: String(err)
+            });
+        } finally {
+            prefetchLoadingRef.current = false;
+        }
+    };
+
+    // 监听搜索词，如果有匹配的表，自动展开对应的数据库
+    useEffect(() => {
+        if (filterTerm && connection.db_type === 'mysql') {
+            const newExpanded = new Set(expandedDatabases);
+            let changed = false;
+
+            databases.forEach(db => {
+                // 如果数据库名本身匹配，不需要因为表而展开（虽然也可以）
+                // 这里主要处理：数据库名不匹配，但表名匹配的情况
+                const dbTables = tables[db];
+                if (dbTables && dbTables.some(t => isMatch(t.name))) {
+                    if (!newExpanded.has(db)) {
+                        newExpanded.add(db);
+                        changed = true;
+                    }
+                }
+            });
+
+            if (changed) {
+                setExpandedDatabases(newExpanded);
+            }
+        }
+    }, [filterTerm, tables, databases, connection.db_type]);
 
     const toggleDatabaseExpand = async (dbName: string, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -295,8 +407,9 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
             newExpanded.add(dbName);
             setExpandedDatabases(newExpanded);
 
-            // 只有在展开节点且表列表未加载时才加载
-            if (!tables[dbName]) {
+            // 真正点击展开时，尝试更新最新的表数据
+            // 只有当没有正在加载时才加载
+            if (!loadingTables.has(dbName)) {
                 loadTables(dbName);
             }
         }
@@ -582,7 +695,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                                 {/* Tables List (MySQL & SQLite) */}
                                 {(connection.db_type === 'mysql' || connection.db_type === 'sqlite') && expandedDatabases.has(db) && (
                                     <div className="ml-4 border-l border-border/40 pl-1">
-                                        {loadingTables.has(db) ? (
+                                        {(loadingTables.has(db) && (!tables[db] || tables[db].length === 0)) ? (
                                             <div className="px-4 py-1 flex items-center gap-2 text-muted-foreground text-xs">
                                                 <Loader2 className="h-3 w-3 animate-spin" />
                                                 <span>Loading...</span>
