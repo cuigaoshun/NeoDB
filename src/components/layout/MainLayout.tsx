@@ -55,12 +55,36 @@ export function MainLayout() {
                 {/* 2. Main Content Area */}
                 <div className="flex-1 flex overflow-hidden">
                     {activeView === 'home' ? (
-                        <div className="flex-1">
-                            <ConnectionManager />
+                        <div className="flex-1 overflow-hidden">
+                            <ResizablePanelGroup direction="vertical">
+                                <ResizablePanel defaultSize={consoleVisible ? 70 : 100}>
+                                    <ConnectionManager />
+                                </ResizablePanel>
+                                {consoleVisible && (
+                                    <>
+                                        <ResizableHandle />
+                                        <ResizablePanel defaultSize={30} minSize={10} maxSize={50}>
+                                            <CommandConsole />
+                                        </ResizablePanel>
+                                    </>
+                                )}
+                            </ResizablePanelGroup>
                         </div>
                     ) : activeView === 'settings' ? (
-                        <div className="flex-1">
-                            <SettingsPage />
+                        <div className="flex-1 overflow-hidden">
+                            <ResizablePanelGroup direction="vertical">
+                                <ResizablePanel defaultSize={consoleVisible ? 70 : 100}>
+                                    <SettingsPage />
+                                </ResizablePanel>
+                                {consoleVisible && (
+                                    <>
+                                        <ResizableHandle />
+                                        <ResizablePanel defaultSize={30} minSize={10} maxSize={50}>
+                                            <CommandConsole />
+                                        </ResizablePanel>
+                                    </>
+                                )}
+                            </ResizablePanelGroup>
                         </div>
                     ) : (
                         <ResizablePanelGroup direction="horizontal">
