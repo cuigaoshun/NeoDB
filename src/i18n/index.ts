@@ -302,6 +302,10 @@ const resources = {
         "invalidFile": "Invalid file format",
         "importFailed": "Import failed partially or completely",
         "passwordsNotIncluded": "Passwords were not included in export",
+        "mysql": "MySQL",
+        "mysqlPrefetchDbCount": "Prefetch Database Count",
+        "mysqlPrefetchDbCountDesc": "Preload table info for recently accessed databases when expanding connection",
+        "all": "All",
         "redis": "Redis",
         "redisScanCount": "Scan Count",
         "redisScanCountDesc": "Number of keys to scan per request (10-10000)"
@@ -607,6 +611,10 @@ const resources = {
         "invalidFile": "文件格式无效",
         "importFailed": "导入部分或全部失败",
         "passwordsNotIncluded": "导出时未包含密码",
+        "mysql": "MySQL",
+        "mysqlPrefetchDbCount": "预取数据库数量",
+        "mysqlPrefetchDbCountDesc": "展开连接时预加载最近访问的数据库表信息",
+        "all": "全部",
         "redis": "Redis",
         "redisScanCount": "扫描数量",
         "redisScanCountDesc": "每次扫描的键数量 (10-10000)"

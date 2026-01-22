@@ -859,7 +859,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                     onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
                 >
                     <div
-                        className="absolute bg-popover border rounded-md shadow-md py-1 z-50"
+                        className="absolute w-32 bg-popover border rounded-md shadow-md py-1 z-50"
                         style={{ left: contextMenu.x, top: contextMenu.y }}
                         onClick={(e) => e.stopPropagation()}
                     >
