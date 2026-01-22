@@ -73,8 +73,6 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
     const loadingDatabasesRef = useRef<{ connectionId: number; loading: boolean } | null>(null);
     const prefetchLoadingRef = useRef(false);
     const hasPrefetchedRef = useRef(false);
-    // 记录哪些数据库已经加载过完整表数据（包含 comment/rowCount）
-    const loadedTablesRef = useRef<Set<string>>(new Set());
 
     // Auto-expand if filter matches something inside (and we have data)
     // This is tricky with lazy loading. We only filter what we have.
@@ -491,12 +489,11 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
         } else {
             newExpanded.add(dbName);
             setExpandedDatabases(newExpanded);
+        }
 
-            // 真正点击展开时，尝试更新最新的表数据
-            // 只有当没有正在加载且没有加载过完整数据时才加载
-            if (!loadingTables.has(dbName) && !loadedTablesRef.current.has(dbName)) {
-                loadTables(dbName);
-            }
+        // 每次点击数据库都刷新表数据（获取最新的注释和行数）
+        if (!loadingTables.has(dbName)) {
+            loadTables(dbName);
         }
     };
 
@@ -549,9 +546,6 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                 ...prev,
                 [dbName]: tableList
             }));
-
-            // 标记该数据库已加载完整数据
-            loadedTablesRef.current.add(dbName);
 
             // 缓存到 store 中
             setTablesCache(connection.id, dbName, tableList);
