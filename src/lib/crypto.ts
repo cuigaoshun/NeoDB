@@ -63,17 +63,12 @@ export interface EncryptedData {
 
 export async function encryptData(data: string, password: string): Promise<EncryptedData> {
   try {
-    console.log("Starting encryption...");
     const salt = window.crypto.getRandomValues(new Uint8Array(16));
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
-    console.log("Generated salt and IV");
-    
-    console.log("Importing password key...");
+
     const passwordKey = await getPasswordKey(password);
-    console.log("Deriving AES key...");
     const aesKey = await deriveKey(passwordKey, salt, ["encrypt"]);
     
-    console.log("Encrypting data...");
     const encryptedContent = await window.crypto.subtle.encrypt(
       {
         name: "AES-GCM",
@@ -82,7 +77,6 @@ export async function encryptData(data: string, password: string): Promise<Encry
       aesKey,
       new TextEncoder().encode(data)
     );
-    console.log("Encryption successful");
 
     return {
       salt: btoa(ab2str(salt)),

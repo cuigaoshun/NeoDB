@@ -148,7 +148,6 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
     const loadDatabases = async () => {
         // 如果已经在加载相同连接的数据，直接返回
         if (loadingDatabasesRef.current?.connectionId === connection.id && loadingDatabasesRef.current?.loading) {
-            console.log('[ConnectionTree] 跳过重复加载数据库列表:', connection.id);
             return;
         }
 

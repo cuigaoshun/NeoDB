@@ -70,7 +70,6 @@ export function DatabaseTablesTab({ connectionId, dbName, dbType }: DatabaseTabl
         // 首先尝试从缓存读取
         const cachedTables = getTablesCache(connectionId, dbName);
         if (cachedTables && cachedTables.length > 0) {
-            console.log('[DatabaseTablesTab] 从缓存读取表列表:', { connectionId, dbName, count: cachedTables.length });
             setTables(cachedTables);
             return;
         }
@@ -79,7 +78,6 @@ export function DatabaseTablesTab({ connectionId, dbName, dbType }: DatabaseTabl
         if (loadingStateRef.current?.connectionId === connectionId &&
             loadingStateRef.current?.dbName === dbName &&
             loadingStateRef.current?.loading) {
-            console.log('[DatabaseTablesTab] 跳过重复加载:', { connectionId, dbName });
             return;
         }
 
