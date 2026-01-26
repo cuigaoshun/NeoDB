@@ -22,17 +22,9 @@ import { useTheme } from "@/components/theme/ThemeProvider.tsx";
 import { useAppStore } from "@/store/useAppStore.ts";
 import { addCommandToConsole } from "@/components/ui/CommandConsole.tsx";
 import { confirm } from "@/hooks/use-toast.ts";
-
-interface ColumnInfo {
-    name: string;
-    type_name: string;
-}
-
-interface SqlResult {
-    columns: ColumnInfo[];
-    rows: Record<string, any>[];
-    affected_rows: number;
-}
+import type { SqlResult } from "@/types/sql";
+import { DEFAULT_PAGE_SIZE, DEBOUNCE_DELAY } from "@/constants/workspace";
+import { autoAddLimit } from "@/hooks/usePagination";
 
 interface SqliteWorkspaceProps {
     tabId: string;
@@ -66,8 +58,8 @@ export function SqliteWorkspace({ tabId, name, connectionId, initialSql, savedSq
 
     // 分页状态
     const [currentPage, setCurrentPage] = useState(0);
-    const [pageSize, setPageSize] = useState(50);
-    const [pageSizeInput, setPageSizeInput] = useState("50");
+    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+    const [pageSizeInput, setPageSizeInput] = useState(String(DEFAULT_PAGE_SIZE));
 
     // 主键信息
     const [primaryKeys, setPrimaryKeys] = useState<string[]>([]);
@@ -76,7 +68,7 @@ export function SqliteWorkspace({ tabId, name, connectionId, initialSql, savedSq
     useEffect(() => {
         const timer = setTimeout(() => {
             updateTab(tabId, { currentSql: sql, savedResult: result });
-        }, 500);
+        }, DEBOUNCE_DELAY);
         return () => clearTimeout(timer);
     }, [sql, result, tabId, updateTab]);
 
@@ -160,29 +152,6 @@ export function SqliteWorkspace({ tabId, name, connectionId, initialSql, savedSq
         }
     }, [showDDL, tableName]);
 
-    // 辅助函数：自动为 SELECT 语句添加 LIMIT 和 OFFSET
-    const autoAddLimit = (query: string, limit: number, offset: number): string => {
-        let trimmedQuery = query.trim();
-        if (trimmedQuery.endsWith(';')) {
-            trimmedQuery = trimmedQuery.slice(0, -1).trim();
-        }
-        const upperQuery = trimmedQuery.toUpperCase();
-
-        // 只处理 SELECT 语句
-        if (!upperQuery.startsWith('SELECT')) {
-            return query;
-        }
-
-        // 如果已经有 LIMIT，先移除它
-        let processedQuery = trimmedQuery;
-        const limitRegex = /\s+LIMIT\s+\d+(\s+OFFSET\s+\d+)?$/i;
-        processedQuery = processedQuery.replace(limitRegex, '');
-
-        // 添加新的 LIMIT 和 OFFSET
-        return offset > 0
-            ? `${processedQuery} LIMIT ${limit} OFFSET ${offset};`
-            : `${processedQuery} LIMIT ${limit};`;
-    };
 
     // 检测表的主键
     const detectPrimaryKeys = async () => {

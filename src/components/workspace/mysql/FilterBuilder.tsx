@@ -6,34 +6,11 @@ import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { Plus, Trash2, FolderPlus, Filter, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import { useTranslation } from "react-i18next";
+import type { ColumnInfo, FilterType, LogicOperator, FilterNode, OrderByClause } from "@/types/sql";
+import { SQL_OPERATORS } from "@/constants/workspace";
 
-export interface ColumnInfo {
-    name: string;
-    type_name: string;
-}
-
-export type FilterType = 'condition' | 'group';
-export type LogicOperator = 'AND' | 'OR';
-
-export interface FilterNode {
-    id: string;
-    type: FilterType;
-    isActive: boolean;
-    // For conditions
-    field?: string;
-    operator?: string;
-    value?: string;
-    // For groups
-    children?: FilterNode[];
-    logic?: LogicOperator; // Logic applied to children of this group
-    // Logic operator to connect with the NEXT sibling (not used for the last item)
-    nextLogic?: LogicOperator;
-}
-
-export interface OrderByClause {
-    field: string;
-    direction: 'ASC' | 'DESC';
-}
+// Re-export types for backwards compatibility
+export type { ColumnInfo, FilterType, LogicOperator, FilterNode, OrderByClause };
 
 interface FilterBuilderProps {
     columns: ColumnInfo[];
@@ -43,19 +20,7 @@ interface FilterBuilderProps {
     primaryKeys?: string[];
 }
 
-const OPERATORS = [
-    { label: '=', value: '=' },
-    { label: '!=', value: '!=' },
-    { label: '>', value: '>' },
-    { label: '>=', value: '>=' },
-    { label: '<', value: '<' },
-    { label: '<=', value: '<=' },
-    { label: 'LIKE', value: 'LIKE' },
-    { label: 'NOT LIKE', value: 'NOT LIKE' },
-    { label: 'IN', value: 'IN' },
-    { label: 'IS NULL', value: 'IS NULL' },
-    { label: 'IS NOT NULL', value: 'IS NOT NULL' },
-];
+const OPERATORS = SQL_OPERATORS;
 
 // Helper to check if a column type is date/time related
 const isDateTimeType = (typeName: string): boolean => {

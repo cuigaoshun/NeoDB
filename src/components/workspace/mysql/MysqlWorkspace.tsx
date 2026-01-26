@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button.tsx";
 import { Play, Loader2, FileCode, Hash, Type, Calendar, Binary, Trash2, Plus, Copy, Check, X, ChevronLeft, ChevronRight, Filter, Pencil, Wand2, Eye, MousePointerClick } from "lucide-react";
@@ -38,17 +38,9 @@ import { useIsDarkTheme } from "@/hooks/useIsDarkTheme.ts";
 import { useAppStore } from "@/store/useAppStore.ts";
 import { addCommandToConsole } from "@/components/ui/CommandConsole.tsx";
 import { confirm } from "@/hooks/use-toast.ts";
-
-interface ColumnInfo {
-    name: string;
-    type_name: string;
-}
-
-interface SqlResult {
-    columns: ColumnInfo[];
-    rows: Record<string, any>[];
-    affected_rows: number;
-}
+import type { ColumnInfo, SqlResult } from "@/types/sql";
+import { DEFAULT_PAGE_SIZE, DEBOUNCE_DELAY } from "@/constants/workspace";
+import { autoAddLimit } from "@/hooks/usePagination";
 
 interface MysqlWorkspaceProps {
     tabId: string;
@@ -91,8 +83,8 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
 
     // 分页状态
     const [currentPage, setCurrentPage] = useState(0);
-    const [pageSize, setPageSize] = useState(50);
-    const [pageSizeInput, setPageSizeInput] = useState("50");
+    const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+    const [pageSizeInput, setPageSizeInput] = useState(String(DEFAULT_PAGE_SIZE));
 
     // 主键信息
     const [primaryKeys, setPrimaryKeys] = useState<string[]>([]);
@@ -133,7 +125,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     useEffect(() => {
         const timer = setTimeout(() => {
             updateTab(tabId, { currentSql: sql, savedResult: result });
-        }, 500);
+        }, DEBOUNCE_DELAY);
         return () => clearTimeout(timer);
     }, [sql, result, tabId, updateTab]);
 
@@ -242,29 +234,6 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
         }
     }, [dbName, tableName]);
 
-    // 辅助函数：自动为 SELECT 语句添加 LIMIT 和 OFFSET
-    const autoAddLimit = (query: string, limit: number, offset: number): string => {
-        let trimmedQuery = query.trim();
-        if (trimmedQuery.endsWith(';')) {
-            trimmedQuery = trimmedQuery.slice(0, -1).trim();
-        }
-        const upperQuery = trimmedQuery.toUpperCase();
-
-        // 只处理 SELECT 语句
-        if (!upperQuery.startsWith('SELECT')) {
-            return query;
-        }
-
-        // 如果已经有 LIMIT，先移除它
-        let processedQuery = trimmedQuery;
-        const limitRegex = /\s+LIMIT\s+\d+(\s+OFFSET\s+\d+)?$/i;
-        processedQuery = processedQuery.replace(limitRegex, '');
-
-        // 添加新的 LIMIT 和 OFFSET
-        return offset > 0
-            ? `${processedQuery} LIMIT ${limit} OFFSET ${offset}; `
-            : `${processedQuery} LIMIT ${limit}; `;
-    };
 
     // 检测表的主键，返回主键数组
     const detectPrimaryKeys = async (): Promise<string[]> => {
@@ -873,8 +842,8 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
         return <Type className="h-3 w-3 text-gray-500" />;
     };
 
-    // Compute filtered rows based on inline filters
-    const getFilteredRows = () => {
+    // Compute filtered rows based on inline filters (memoized)
+    const filteredRows = useMemo(() => {
         if (!result) return [];
         const activeFilters = Object.entries(inlineFilters).filter(([_, value]) => value.trim() !== '');
         if (activeFilters.length === 0) return result.rows;
@@ -889,10 +858,12 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                 return strValue.toLowerCase().includes(filterValue.toLowerCase());
             });
         });
-    };
+    }, [result, inlineFilters]);
 
-    const filteredRows = getFilteredRows();
-    const hasActiveInlineFilters = Object.values(inlineFilters).some(v => v.trim() !== '');
+    const hasActiveInlineFilters = useMemo(() =>
+        Object.values(inlineFilters).some(v => v.trim() !== ''),
+        [inlineFilters]
+    );
 
 
 

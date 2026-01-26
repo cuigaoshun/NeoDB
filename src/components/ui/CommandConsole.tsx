@@ -109,7 +109,8 @@ export function CommandConsole({ className = '', style }: CommandConsoleProps) {
       const parts = commandStr.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
       if (parts.length === 0) return;
 
-      const command = parts[0].toUpperCase();
+      const command = parts[0]?.toUpperCase();
+      if (!command) return;
       const args = parts.slice(1).map(p => p.replace(/^"|"$/g, '')); // Remove quotes
 
       const result = await invoke<RedisResult>('execute_redis_command', {

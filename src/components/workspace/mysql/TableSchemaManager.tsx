@@ -19,31 +19,10 @@ import { Badge } from "@/components/ui/badge.tsx";
 import { addCommandToConsole } from "@/components/ui/CommandConsole.tsx";
 import { confirm } from "@/hooks/use-toast.ts";
 import { ColumnEditor, ColumnDefinition } from "@/components/workspace/mysql/ColumnEditor.tsx";
+import type { ExtendedColumnInfo, IndexInfo } from "@/types/sql";
 
-interface ColumnInfo {
-    Field: string;
-    Type: string;
-    Null: string;
-    Key: string;
-    Default: string | null;
-    Extra: string;
-    Comment: string;
-}
-
-interface IndexInfo {
-    Table: string;
-    Non_unique: number;
-    Key_name: string;
-    Seq_in_index: number;
-    Column_name: string;
-    Collation: string | null;
-    Cardinality: number | null;
-    Sub_part: number | null;
-    Packed: string | null;
-    Null: string;
-    Index_type: string;
-    Comment: string;
-}
+// Use alias for local type clarity
+type ColumnInfo = ExtendedColumnInfo;
 
 interface TableSchemaManagerProps {
     connectionId: number;
