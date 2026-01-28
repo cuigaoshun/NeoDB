@@ -873,7 +873,8 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     const connectionName = connection?.name || name;
 
     const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
-    const resizingRef = useRef<{ colName: string, startX: number, startWidth: number } | null>(null);
+    const resizingRef = useRef<{ colName: string, startX: number, startWidth: number, colIndex: number, startTotalWidth: number } | null>(null);
+    const tableContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (!result?.columns) {
@@ -896,31 +897,42 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
         setColumnWidths(widths);
     }, [result?.columns]);
 
-    const handleResizeStart = (e: React.MouseEvent, colName: string) => {
+    const handleResizeStart = (e: React.MouseEvent, colName: string, colIndex: number) => {
         e.preventDefault();
         e.stopPropagation();
         const startWidth = columnWidths[colName] || 120;
-        resizingRef.current = { colName, startX: e.clientX, startWidth };
+        const currentTotalWidth = totalTableWidth;
+        resizingRef.current = { colName, startX: e.clientX, startWidth, colIndex, startTotalWidth: currentTotalWidth };
 
         const handleResizeMove = (e: MouseEvent) => {
-            if (!resizingRef.current) return;
-            const { colName, startX, startWidth } = resizingRef.current;
+            if (!resizingRef.current || !tableContainerRef.current) return;
+            const { startX, startWidth, colIndex, startTotalWidth } = resizingRef.current;
             const diff = e.clientX - startX;
             const newWidth = Math.max(80, startWidth + diff); // Min width 80
 
-            requestAnimationFrame(() => {
-                setColumnWidths(prev => ({
-                    ...prev,
-                    [colName]: newWidth
-                }));
-            });
+            // Directly update CSS variables for performance
+            tableContainerRef.current.style.setProperty(`--col-width-${colIndex}`, `${newWidth}px`);
+
+            // Also update total width
+            const newTotalWidth = startTotalWidth + (newWidth - startWidth);
+            tableContainerRef.current.style.setProperty('--table-total-width', `${newTotalWidth}px`);
         };
 
-        const handleResizeEnd = () => {
+        const handleResizeEnd = (e: MouseEvent) => {
+            if (!resizingRef.current) return;
+            const { colName, startX, startWidth } = resizingRef.current;
+            const diff = e.clientX - startX;
+            const newWidth = Math.max(80, startWidth + diff);
+
             resizingRef.current = null;
             document.removeEventListener('mousemove', handleResizeMove);
             document.removeEventListener('mouseup', handleResizeEnd);
             document.body.style.cursor = '';
+
+            setColumnWidths(prev => ({
+                ...prev,
+                [colName]: newWidth
+            }));
         };
 
         document.addEventListener('mousemove', handleResizeMove);
@@ -933,6 +945,16 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
         const colsWidth = result.columns.reduce((acc, col) => acc + (columnWidths[col.name] || 120), 0);
         return colsWidth + (selectedRowIndices.length > 0 ? 50 : 0);
     }, [result?.columns, columnWidths, selectedRowIndices.length]);
+
+    const tableCssVars = useMemo(() => {
+        const vars: Record<string, string> = {
+            '--table-total-width': `${totalTableWidth}px`
+        };
+        result?.columns.forEach((col, i) => {
+            vars[`--col-width-${i}`] = `${columnWidths[col.name] || 120}px`;
+        });
+        return vars as React.CSSProperties;
+    }, [columnWidths, totalTableWidth, result?.columns]);
 
     return (
         <div className="h-full flex flex-col bg-background">
@@ -1116,11 +1138,19 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                         >
                                             {/* 表格宽度容器 */}
                                             <div
+                                                ref={tableContainerRef}
                                                 style={{
-                                                    minWidth: `${totalTableWidth}px`
+                                                    minWidth: `var(--table-total-width)`,
+                                                    ...tableCssVars
                                                 }}
                                             >
                                                 <Table className="table-fixed">
+                                                    <colgroup>
+                                                        {selectedRowIndices.length > 0 && <col style={{ width: '50px' }} />}
+                                                        {result.columns.map((_, i) => (
+                                                            <col key={i} style={{ width: `var(--col-width-${i})` }} />
+                                                        ))}
+                                                    </colgroup>
                                                     <TableHeader className="sticky top-0 bg-muted/50 z-10">
                                                         <TableRow>
                                                             {/* 复选框列 - 只在有选中行时显示 */}
@@ -1149,7 +1179,6 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                 <TableHead
                                                                     key={i}
                                                                     className="whitespace-nowrap"
-                                                                    style={{ width: `${columnWidths[col.name] || 120}px`, minWidth: `${columnWidths[col.name] || 120}px` }}
                                                                 >
                                                                     <div className="flex items-center justify-between relative group h-full">
                                                                         <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0 truncate pr-2">
@@ -1207,7 +1236,7 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                         {/* Resize Handle */}
                                                                         <div
                                                                             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500/50 transition-colors"
-                                                                            onMouseDown={(e) => handleResizeStart(e, col.name)}
+                                                                            onMouseDown={(e) => handleResizeStart(e, col.name, i)}
                                                                         />
                                                                     </div>
                                                                 </TableHead>
@@ -1227,7 +1256,6 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                     <TableCell
                                                                         key={colIdx}
                                                                         className="whitespace-nowrap"
-                                                                        style={{ width: `${columnWidths[col.name] || 120}px`, minWidth: `${columnWidths[col.name] || 120}px` }}
                                                                     >
                                                                         {editingCell?.rowIdx === rowIdx && editingCell?.colName === col.name && editingCell?.isNewRow ? (
                                                                             <div className="relative w-full">
@@ -1306,7 +1334,6 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                         <TableCell
                                                                             key={colIdx}
                                                                             className="p-0 whitespace-nowrap"
-                                                                            style={{ width: `${columnWidths[col.name] || 120}px`, minWidth: `${columnWidths[col.name] || 120}px` }}
                                                                         >
                                                                             {editingCell?.rowIdx === originalRowIdx && editingCell?.colName === col.name && !editingCell?.isNewRow ? (
                                                                                 <div className="relative w-full px-2 py-1">

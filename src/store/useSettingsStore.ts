@@ -18,6 +18,8 @@ export interface Settings {
   mysqlPrefetchDbCount: number | 'all';
   // 最近访问的数据库: key 格式为 connectionId, 值为数据库名数组（按访问时间倒序）
   recentDatabases: Record<number, string[]>;
+  // Connection list heights: key is connectionId, value is height in pixels
+  connectionListHeights: Record<number, number>;
 }
 
 interface SettingsState extends Settings {
@@ -36,6 +38,10 @@ interface SettingsState extends Settings {
   // 最近访问数据库方法
   getRecentDatabases: (connectionId: number) => string[];
   addRecentDatabase: (connectionId: number, dbName: string) => void;
+  // Connection list height methods
+  setConnectionListHeight: (connectionId: number, height: number) => void;
+  getConnectionListHeight: (connectionId: number) => number | undefined;
+  resetConnectionListHeight: (connectionId: number) => void;
 }
 
 const defaultViewPreference: RedisViewPreference = {
@@ -49,6 +55,7 @@ const defaultSettings: Settings = {
   redisSearchHistory: {},
   mysqlPrefetchDbCount: 20,
   recentDatabases: {},
+  connectionListHeights: {},
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -149,6 +156,27 @@ export const useSettingsStore = create<SettingsState>()(
               [connectionId]: newList,
             },
           };
+        });
+      },
+
+      setConnectionListHeight: (connectionId, height) => {
+        set((state) => ({
+          connectionListHeights: {
+            ...state.connectionListHeights,
+            [connectionId]: height,
+          },
+        }));
+      },
+
+      getConnectionListHeight: (connectionId) => {
+        return get().connectionListHeights[connectionId];
+      },
+
+      resetConnectionListHeight: (connectionId) => {
+        set((state) => {
+          const newHeights = { ...state.connectionListHeights };
+          delete newHeights[connectionId];
+          return { connectionListHeights: newHeights };
         });
       },
     }),

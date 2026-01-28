@@ -12,6 +12,8 @@ import {
     Loader2,
     FileCode,
     ChevronsDownUp,
+    GripHorizontal,
+    RotateCcw,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { addCommandToConsole } from "@/components/ui/CommandConsole";
@@ -55,6 +57,66 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
     // Map dbName -> TableInfo[]
     const [tables, setTables] = useState<Record<string, TableInfo[]>>({});
     const [loadingTables, setLoadingTables] = useState<Set<string>>(new Set());
+
+    // Resizing logic
+    const heightMap = useSettingsStore(state => state.connectionListHeights);
+    const setConnectionListHeight = useSettingsStore(state => state.setConnectionListHeight);
+    const resetConnectionListHeight = useSettingsStore(state => state.resetConnectionListHeight);
+
+    // Local resizing state for smooth UI
+    const [isResizing, setIsResizing] = useState(false);
+    const [dragHeight, setDragHeight] = useState<number | undefined>(undefined);
+    const resizingRef = useRef<{ startY: number, startHeight: number } | null>(null);
+
+    const storedHeight = heightMap[connection.id];
+    const actualHeight = dragHeight ?? storedHeight;
+
+    // Use a ref to track the current drag height synchronously
+    const currentDragHeightRef = useRef<number | undefined>(undefined);
+
+    const handleResizeStart = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsResizing(true);
+
+        // Determine current starting height
+        const currentRef = virtualListRef.current;
+        const startH = actualHeight || (currentRef ? currentRef.offsetHeight : 300);
+
+        setDragHeight(startH);
+        currentDragHeightRef.current = startH;
+        resizingRef.current = { startY: e.clientY, startHeight: startH };
+
+        const handleMouseMove = (moveEvent: MouseEvent) => {
+            if (!resizingRef.current) return;
+            const deltaY = moveEvent.clientY - resizingRef.current.startY;
+            // Min height 100px
+            const newHeight = Math.max(100, resizingRef.current.startHeight + deltaY);
+
+            // Update state for UI
+            setDragHeight(newHeight);
+            // Update ref for final save
+            currentDragHeightRef.current = newHeight;
+        };
+
+        const handleMouseUp = () => {
+            // Save final height from ref
+            if (currentDragHeightRef.current) {
+                setConnectionListHeight(connection.id, currentDragHeightRef.current);
+            }
+
+            // Clean up
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            setIsResizing(false);
+            setDragHeight(undefined); // Reset local drag state so we use stored state
+            resizingRef.current = null;
+            currentDragHeightRef.current = undefined;
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    };
 
     // Create table dialog state
     const [showCreateTableDialog, setShowCreateTableDialog] = useState(false);
@@ -761,9 +823,10 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                         <div
                             ref={virtualListRef}
                             className={cn(
-                                "overflow-y-auto",
-                                (connection.db_type === 'mysql' || connection.db_type === 'sqlite') ? "max-h-[600px]" : "max-h-[320px]"
+                                "overflow-y-auto transition-all duration-75",
+                                !actualHeight && ((connection.db_type === 'mysql' || connection.db_type === 'sqlite') ? "max-h-[600px]" : "max-h-[320px]")
                             )}
+                            style={actualHeight ? { height: actualHeight } : undefined}
                         >
                             <div
                                 style={{
@@ -842,6 +905,26 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
                             </div>
                         </div>
                     )}
+
+                    {/* Resize Handle Area */}
+                    <div className="flex items-center justify-center h-4 hover:bg-accent/50 cursor-ns-resize group relative mt-1 rounded-sm"
+                        onMouseDown={handleResizeStart}>
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <GripHorizontal className="w-4 h-4 text-muted-foreground/50" />
+                        </div>
+                        {storedHeight && (
+                            <button
+                                className="absolute right-2 p-0.5 rounded-sm hover:bg-background/80 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    resetConnectionListHeight(connection.id);
+                                }}
+                                title={t('common.resetHeight', '恢复默认高度')}
+                            >
+                                <RotateCcw className="w-3 h-3" />
+                            </button>
+                        )}
+                    </div>
                 </div>
             )}
 
