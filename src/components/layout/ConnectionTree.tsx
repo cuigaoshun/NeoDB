@@ -64,7 +64,7 @@ export function ConnectionTreeItem({ connection, isActive, onSelect, onSelectTab
     const resetConnectionListHeight = useSettingsStore(state => state.resetConnectionListHeight);
 
     // Local resizing state for smooth UI
-    const [isResizing, setIsResizing] = useState(false);
+    const [, setIsResizing] = useState(false);
     const [dragHeight, setDragHeight] = useState<number | undefined>(undefined);
     const resizingRef = useRef<{ startY: number, startHeight: number } | null>(null);
 
