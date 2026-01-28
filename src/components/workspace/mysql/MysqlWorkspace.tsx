@@ -872,18 +872,61 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
     const connection = useAppStore(state => state.connections.find(c => c.id === connectionId));
     const connectionName = connection?.name || name;
 
-    const columnWidths = useMemo(() => {
-        if (!result?.columns) return {};
+    const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+    const resizingRef = useRef<{ colName: string, startX: number, startWidth: number } | null>(null);
+
+    useEffect(() => {
+        if (!result?.columns) {
+            setColumnWidths({});
+            return;
+        }
         const widths: Record<string, number> = {};
         result.columns.forEach(col => {
-            // Calculate width based on field name length
-            // Base width + char length * approx char width
-            // Min width 120px to accommodate edit buttons
-            const width = Math.max(120, col.name.length * 12 + 20);
-            widths[col.name] = width;
+            const type = col.type_name.toUpperCase();
+            if (type.includes("DATE") || type.includes("TIME") || type.includes("TIMESTAMP")) {
+                widths[col.name] = 150;
+            } else {
+                // Calculate width based on field name length
+                // Base width + char length * approx char width
+                // Min width 120px to accommodate edit buttons
+                const width = Math.max(120, col.name.length * 12 + 20);
+                widths[col.name] = width;
+            }
         });
-        return widths;
+        setColumnWidths(widths);
     }, [result?.columns]);
+
+    const handleResizeStart = (e: React.MouseEvent, colName: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const startWidth = columnWidths[colName] || 120;
+        resizingRef.current = { colName, startX: e.clientX, startWidth };
+
+        const handleResizeMove = (e: MouseEvent) => {
+            if (!resizingRef.current) return;
+            const { colName, startX, startWidth } = resizingRef.current;
+            const diff = e.clientX - startX;
+            const newWidth = Math.max(80, startWidth + diff); // Min width 80
+
+            requestAnimationFrame(() => {
+                setColumnWidths(prev => ({
+                    ...prev,
+                    [colName]: newWidth
+                }));
+            });
+        };
+
+        const handleResizeEnd = () => {
+            resizingRef.current = null;
+            document.removeEventListener('mousemove', handleResizeMove);
+            document.removeEventListener('mouseup', handleResizeEnd);
+            document.body.style.cursor = '';
+        };
+
+        document.addEventListener('mousemove', handleResizeMove);
+        document.addEventListener('mouseup', handleResizeEnd);
+        document.body.style.cursor = 'col-resize';
+    };
 
     const totalTableWidth = useMemo(() => {
         if (!result?.columns) return 0;
@@ -1108,8 +1151,8 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                     className="whitespace-nowrap"
                                                                     style={{ width: `${columnWidths[col.name] || 120}px`, minWidth: `${columnWidths[col.name] || 120}px` }}
                                                                 >
-                                                                    <div className="flex items-center justify-between">
-                                                                        <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0 truncate">
+                                                                    <div className="flex items-center justify-between relative group h-full">
+                                                                        <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0 truncate pr-2">
                                                                             <span className="font-semibold text-foreground truncate" title={col.name}>{col.name}</span>
                                                                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                                                                 {getColumnTypeIcon(col.type_name)}
@@ -1160,6 +1203,12 @@ export function MysqlWorkspace({ tabId, name, connectionId, initialSql, savedSql
                                                                                 })()}
                                                                             </DropdownMenuContent>
                                                                         </DropdownMenu>
+
+                                                                        {/* Resize Handle */}
+                                                                        <div
+                                                                            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500/50 transition-colors"
+                                                                            onMouseDown={(e) => handleResizeStart(e, col.name)}
+                                                                        />
                                                                     </div>
                                                                 </TableHead>
                                                             ))}
